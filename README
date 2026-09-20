@@ -1,0 +1,126 @@
+# WhyNot — Firebase Backend
+
+## What is Firebase?
+
+Firebase is a platform from Google that provides backend services without needing to create and maintain our own server.
+
+For WhyNot, Firebase will be used to manage users, store application data, save product images, and support recommendations.
+
+---
+
+## Firebase Services
+
+We plan to use:
+
+* **Firebase Authentication**
+  For user registration, login, logout, and account management.
+
+* **Cloud Firestore**
+  For storing users, products, categories, and stores.
+
+* **Firebase Storage**
+  For storing product images uploaded manually by users.
+
+---
+
+## Possible Data Model
+
+The main collections would be:
+
+```text
+users
+products
+categories
+stores
+```
+
+### Users
+
+| Field                 | Description                           |
+| --------------------- | ------------------------------------- |
+| `userId`              | User identifier                       |
+| `name`                | User name                             |
+| `email`               | User email                            |
+| `birthYear`           | User birth year                       |
+| `preferredCategoryId` | User's preferred category             |
+| `location`            | User's current or last known location |
+
+---
+
+### Products
+
+| Field        | Description                    |
+| ------------ | ------------------------------ |
+| `productId`  | Product identifier             |
+| `ownerId`    | User who saved the product     |
+| `name`       | Product name                   |
+| `price`      | Current price entered manually |
+| `imageUrl`   | Uploaded product image         |
+| `productUrl` | Original product link          |
+| `categoryId` | Product category               |
+
+Products are added manually by the user. The price can also be manually updated at any moment.
+
+---
+
+### Categories
+
+The available categories are predefined by WhyNot.
+
+| ID            | Category    |
+| ------------- | ----------- |
+| `fashion`     | Fashion     |
+| `beauty`      | Beauty      |
+| `technology`  | Technology  |
+| `home`        | Home        |
+| `accessories` | Accessories |
+| `travel`      | Travel      |
+| `gifts`       | Gifts       |
+| `other`       | Other       |
+
+Users cannot create custom categories.
+
+One of these categories can also be selected as the user's `preferredCategoryId`.
+
+---
+
+### Stores
+
+| Field         | Description                       |
+| ------------- | --------------------------------- |
+| `storeId`     | Store identifier                  |
+| `name`        | Store name                        |
+| `location`    | Store location                    |
+| `categoryIds` | Categories available in the store |
+| `websiteUrl`  | Store website                     |
+
+Stores can later be used to recommend places near the user's current location.
+
+---
+
+## General Model
+
+```text
+USER
+ │
+ ├── preferred category
+ ├── location
+ └── saved products
+          │
+          ↓
+       PRODUCT
+          │
+          ↓
+       CATEGORY
+
+
+USER LOCATION
+      │
+      ↓
+    STORES
+      │
+      ↓
+NEARBY STORE RECOMMENDATIONS
+```
+
+This model can later also support personalized recommendations based on the user's preferred category, saved products, demographics, and location.
