@@ -26,11 +26,12 @@ firestore.indexes.json                    Versioned index manifest
 firebase.json                             Emulator and deployment configuration
 tests/firestore-rules/                    Emulator-backed rules tests
 scripts/seed-categories/                  Idempotent canonical category seed
+scripts/seed-cities/                      Idempotent canonical city seed
 scripts/assign-admin-role/                Privileged custom-claim management
 ```
 
-The current user-facing collections are `users`, `categories`, `wishlists`,
-and `products`. Administrators with the `admin: true` custom claim may read
+The current user-facing collections are `users`, `categories`, `cities`,
+`wishlists`, and `products`. Administrators with the `admin: true` custom claim may read
 aggregate documents under `adminMetrics`; no client may write those documents.
 `productEvents` and `processedEvents` remain backend-only.
 
@@ -104,6 +105,10 @@ The Firestore emulator does not enforce composite indexes. The current client
 uses equality-only queries and needs no manual composite index; production
 query behavior must still be checked before a release.
 
+The purchase metric counts existing purchased products. Deleting a product
+deletes its document and removes it from that count. No purchase trigger or
+separate purchase-history test is needed.
+
 ## Seed categories
 
 The seed uses stable document IDs and merge writes, so it is repeatable and
@@ -134,6 +139,20 @@ npm run seed:categories -- \
 ```
 
 The seed prints counts for documents that are created, updated, or unchanged.
+
+## Seed cities
+
+The city seed creates the canonical `cities` catalog used by registration and
+profile editing. It is repeatable and does not delete unrelated documents.
+Use the same credentials and `--project` option as the category seed:
+
+```bash
+npm run seed:cities -- --project whynot-f4ae6 --dry-run
+npm run seed:cities -- --project whynot-f4ae6
+```
+
+The initial list is based on [DANE's main cities and metropolitan areas](https://microdatos.dane.gov.co/index.php/catalog/832/variable/F1/V5?name=AREA),
+with an additional `other` option.
 
 ## Assign or revoke the administrator role
 
@@ -198,9 +217,13 @@ next deployment.
 ## Security decisions
 
 - Client access is denied by default.
-- Users can access only their own profiles, wishlists, and products.
+- Regular users can access only their own profiles, wishlists, and products.
+  Administrators may list profiles for the demographic chart; this also
+  exposes profile names and emails to admin clients.
 - Categories are readable by authenticated users and writable only by trusted
   Admin SDK code.
+- Cities are readable by authenticated users and writable only by trusted
+  Admin SDK code. New profiles must reference an existing city.
 - Aggregate metrics are readable only with the Firebase Authentication custom
   claim `admin: true` and are never client-writable.
 - Product events and processed-event markers remain inaccessible to every
@@ -208,8 +231,10 @@ next deployment.
 - Wishlist update/delete remains denied until cascade behavior is defined.
 - One-wishlist-per-category is currently a UI behavior, not an enforceable
   backend invariant, because wishlists use random document IDs.
-- `saveMethod`, `purchasedAt`, analytics events, and aggregate metrics are
-  reserved for Phase 4 and are rejected by the current schema.
+- `purchasedAt` records the purchase month while a product exists. Purchase is
+  a one-way transition, and deletion removes the product from metrics.
+- `saveMethod` and the automatic-versus-manual metric remain deferred because
+  the clients currently support only manual product creation.
 - Admin SDK operations bypass Firestore Security Rules; privileged scripts
   must therefore preserve the documented contract themselves.
 

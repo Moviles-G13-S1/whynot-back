@@ -44,6 +44,7 @@ function validUser(overrides = {}) {
     gender: 'Female',
     age: 22,
     preferredCategoryId: 'fashion',
+    cityId: 'bogota',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
     ...overrides,
@@ -72,6 +73,7 @@ function validProduct(overrides = {}) {
     imageUrl: 'https://example.com/jacket.jpg',
     productUrl: 'https://example.com/jacket',
     purchased: false,
+    purchasedAt: null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
     ...overrides,
@@ -86,6 +88,9 @@ async function seedFixtures({ includeUsers = false, includeProducts = false } = 
     await Promise.all([
       setDoc(doc(firestore, 'categories/fashion'), { name: 'Fashion' }),
       setDoc(doc(firestore, 'categories/beauty'), { name: 'Beauty' }),
+      setDoc(doc(firestore, 'cities/bogota'), { name: 'Bogotá' }),
+      setDoc(doc(firestore, 'cities/medellin'), { name: 'Medellín' }),
+      setDoc(doc(firestore, 'cities/other'), { name: 'Other' }),
       setDoc(doc(firestore, 'wishlists/alice-fashion'), {
         ownerId: aliceUid,
         categoryId: 'fashion',
@@ -144,6 +149,7 @@ async function seedFixtures({ includeUsers = false, includeProducts = false } = 
           imageUrl: '',
           productUrl: '',
           purchased: false,
+          purchasedAt: null,
           createdAt: timestamp,
           updatedAt: timestamp,
         }),
@@ -157,6 +163,7 @@ async function seedFixtures({ includeUsers = false, includeProducts = false } = 
           imageUrl: '',
           productUrl: '',
           purchased: false,
+          purchasedAt: null,
           createdAt: timestamp,
           updatedAt: timestamp,
         }),
@@ -217,6 +224,13 @@ describe('default and category access', () => {
     await assertFails(updateDoc(doc(forgedAdmin, 'categories/fashion'), { name: 'Changed' }));
   });
 
+  it('allows signed-in users to read cities but not edit them', async () => {
+    const alice = firestoreFor(aliceUid, aliceEmail);
+    await assertSucceeds(getDocs(collection(alice, 'cities')));
+    await assertSucceeds(getDoc(doc(alice, 'cities/bogota')));
+    await assertFails(setDoc(doc(alice, 'cities/new'), { name: 'New' }));
+  });
+
   it('allows only administrators to read aggregate metrics', async () => {
     const regularUser = firestoreFor(aliceUid, aliceEmail);
     const admin = firestoreFor(aliceUid, aliceEmail, { admin: true });
@@ -270,6 +284,12 @@ describe('users', () => {
     await assertFails(getDocs(collection(bob, 'users')));
   });
 
+  it('allows an administrator to list profiles for demographics', async () => {
+    await seedFixtures({ includeUsers: true });
+    const admin = firestoreFor(aliceUid, aliceEmail, { admin: true });
+    await assertSucceeds(getDocs(collection(admin, 'users')));
+  });
+
   it('rejects invalid, missing, extra, and mismatched profile data', async () => {
     const alice = firestoreFor(aliceUid, aliceEmail);
     const ownProfile = doc(alice, `users/${aliceUid}`);
@@ -278,12 +298,18 @@ describe('users', () => {
     await assertFails(setDoc(ownProfile, validUser({ age: '22' })));
     await assertFails(setDoc(ownProfile, validUser({ gender: 'Unknown' })));
     await assertFails(setDoc(ownProfile, validUser({ preferredCategoryId: 'missing' })));
+    await assertFails(setDoc(ownProfile, validUser({ cityId: 'missing' })));
+    await assertFails(setDoc(ownProfile, validUser({ cityId: '' })));
     await assertFails(setDoc(ownProfile, validUser({ email: 'other@example.com' })));
     await assertFails(setDoc(ownProfile, validUser({ role: 'admin' })));
 
     const missingName = validUser();
     delete missingName.name;
     await assertFails(setDoc(ownProfile, missingName));
+
+    const missingCity = validUser();
+    delete missingCity.cityId;
+    await assertFails(setDoc(ownProfile, missingCity));
   });
 
   it('allows documented edits and keeps email and createdAt immutable', async () => {
@@ -291,11 +317,22 @@ describe('users', () => {
     const alice = firestoreFor(aliceUid, aliceEmail);
     const ownProfile = doc(alice, `users/${aliceUid}`);
 
+    // Older profiles without cityId remain editable.
+    await assertSucceeds(updateDoc(ownProfile, {
+      name: 'Alice Before City',
+      updatedAt: serverTimestamp(),
+    }));
+
     await assertSucceeds(updateDoc(ownProfile, {
       name: 'Alice Updated',
       gender: 'Other',
       age: 23,
       preferredCategoryId: 'beauty',
+      cityId: 'medellin',
+      updatedAt: serverTimestamp(),
+    }));
+    await assertFails(updateDoc(ownProfile, {
+      cityId: 'missing',
       updatedAt: serverTimestamp(),
     }));
     await assertFails(updateDoc(ownProfile, {
@@ -388,6 +425,10 @@ describe('products', () => {
     const missingBrand = validProduct();
     delete missingBrand.brand;
     await assertFails(setDoc(target, missingBrand));
+
+    const missingPurchasedAt = validProduct();
+    delete missingPurchasedAt.purchasedAt;
+    await assertFails(setDoc(target, missingPurchasedAt));
   });
 
   it('supports current owner and wishlist query shapes', async () => {
@@ -412,6 +453,14 @@ describe('products', () => {
     );
   });
 
+  it('allows an admin to count products but not a regular user', async () => {
+    const admin = firestoreFor(aliceUid, aliceEmail, { admin: true });
+    const regularUser = firestoreFor(aliceUid, aliceEmail);
+
+    await assertSucceeds(getDocs(collection(admin, 'products')));
+    await assertFails(getDocs(collection(regularUser, 'products')));
+  });
+
   it('denies another user equivalent product reads', async () => {
     const bob = firestoreFor(bobUid, bobEmail);
 
@@ -434,7 +483,7 @@ describe('products', () => {
     );
   });
 
-  it('allows documented edits and purchase toggles', async () => {
+  it('allows documented edits and a one-way purchase transition', async () => {
     const alice = firestoreFor(aliceUid, aliceEmail);
     const product = doc(alice, 'products/alice-product');
 
@@ -448,6 +497,18 @@ describe('products', () => {
     }));
     await assertSucceeds(updateDoc(product, {
       purchased: true,
+      purchasedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }));
+
+    await assertFails(updateDoc(product, {
+      purchased: false,
+      purchasedAt: null,
+      updatedAt: serverTimestamp(),
+    }));
+
+    await assertFails(updateDoc(product, {
+      purchasedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     }));
   });

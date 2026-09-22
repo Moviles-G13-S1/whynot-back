@@ -29,6 +29,11 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/categories/$(categoryId));
     }
 
+    function cityExists(cityId) {
+      return cityId is string
+        && exists(/databases/$(database)/documents/cities/$(cityId));
+    }
+
     function validUser(data) {
       return data.keys().hasAll([
           'name',
@@ -45,6 +50,7 @@ service cloud.firestore {
           'gender',
           'age',
           'preferredCategoryId',
+          'cityId',
           'createdAt',
           'updatedAt'
         ])
@@ -55,6 +61,7 @@ service cloud.firestore {
         && data.age >= 13
         && data.age <= 120
         && categoryExists(data.preferredCategoryId)
+        && (!data.keys().hasAny(['cityId']) || cityExists(data.cityId))
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
     }
@@ -112,6 +119,7 @@ service cloud.firestore {
           'imageUrl',
           'productUrl',
           'purchased',
+          'purchasedAt',
           'createdAt',
           'updatedAt'
         ])
@@ -125,6 +133,7 @@ service cloud.firestore {
           'imageUrl',
           'productUrl',
           'purchased',
+          'purchasedAt',
           'createdAt',
           'updatedAt'
         ])
@@ -138,6 +147,10 @@ service cloud.firestore {
         && validString(data.imageUrl, 2048)
         && validString(data.productUrl, 2048)
         && data.purchased is bool
+        && (
+          (!data.purchased && data.purchasedAt == null)
+          || (data.purchased && data.purchasedAt is timestamp)
+        )
         && data.createdAt is timestamp
         && data.updatedAt is timestamp
         && validProductWishlist(data);
@@ -145,11 +158,12 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow get: if signedIn() && currentUid() == uid;
-      allow list: if false;
+      allow list: if isAdmin();
 
       allow create: if signedIn()
         && currentUid() == uid
         && validUser(request.resource.data)
+        && request.resource.data.keys().hasAll(['cityId'])
         && request.auth.token.email is string
         && request.resource.data.email == request.auth.token.email
         && request.resource.data.createdAt == request.time
@@ -163,6 +177,7 @@ service cloud.firestore {
           'gender',
           'age',
           'preferredCategoryId',
+          'cityId',
           'updatedAt'
         ])
         && request.resource.data.updatedAt == request.time;
@@ -171,6 +186,11 @@ service cloud.firestore {
     }
 
     match /categories/{categoryId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    match /cities/{cityId} {
       allow read: if signedIn();
       allow write: if false;
     }
@@ -197,6 +217,8 @@ service cloud.firestore {
 
       allow list: if signedIn()
         && (
+          isAdmin()
+          ||
           resource.data.ownerId == currentUid()
           || wishlistBelongsToCurrentUser(resource.data.wishlistId)
         );
@@ -205,6 +227,7 @@ service cloud.firestore {
         && validProduct(request.resource.data)
         && request.resource.data.ownerId == currentUid()
         && request.resource.data.purchased == false
+        && request.resource.data.purchasedAt == null
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
 
@@ -221,9 +244,22 @@ service cloud.firestore {
           'imageUrl',
           'productUrl',
           'purchased',
+          'purchasedAt',
           'updatedAt'
         ])
-        && request.resource.data.updatedAt == request.time;
+        && request.resource.data.updatedAt == request.time
+        && (
+          (
+            request.resource.data.purchased == resource.data.purchased
+            && request.resource.data.purchasedAt == resource.data.purchasedAt
+          )
+          || (
+            resource.data.purchased == false
+            && resource.data.purchasedAt == null
+            && request.resource.data.purchased == true
+            && request.resource.data.purchasedAt == request.time
+          )
+        );
 
       allow delete: if signedIn() && resource.data.ownerId == currentUid();
     }
