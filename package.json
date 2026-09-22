@@ -1,0 +1,27 @@
+{
+  "name": "whynot-back",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Versioned Firebase backend for WhyNot mobile clients",
+  "type": "module",
+  "engines": {
+    "node": "22 || 24"
+  },
+  "scripts": {
+    "emulators": "firebase emulators:start --project demo-whynot",
+    "test": "npm run test:rules",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-whynot \"mocha --timeout 15000 tests/firestore-rules/**/*.test.mjs\"",
+    "seed:categories": "node scripts/seed-categories/index.mjs",
+    "assign-admin": "node scripts/assign-admin-role/index.mjs",
+    "deploy:firestore": "npm run test:rules && firebase deploy --only firestore"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "5.0.2",
+    "firebase": "12.19.0",
+    "firebase-tools": "15.30.2",
+    "mocha": "12.0.2"
+  },
+  "dependencies": {
+    "firebase-admin": "14.4.0"
+  }
+}
