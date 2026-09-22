@@ -1,0 +1,243 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function currentUid() {
+      return request.auth.uid;
+    }
+
+    function validNonEmptyString(value, maximumLength) {
+      return value is string
+        && value.size() > 0
+        && value.size() <= maximumLength;
+    }
+
+    function validString(value, maximumLength) {
+      return value is string && value.size() <= maximumLength;
+    }
+
+    function categoryExists(categoryId) {
+      return categoryId is string
+        && exists(/databases/$(database)/documents/categories/$(categoryId));
+    }
+
+    function validUser(data) {
+      return data.keys().hasAll([
+          'name',
+          'email',
+          'gender',
+          'age',
+          'preferredCategoryId',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'name',
+          'email',
+          'gender',
+          'age',
+          'preferredCategoryId',
+          'createdAt',
+          'updatedAt'
+        ])
+        && validNonEmptyString(data.name, 120)
+        && validNonEmptyString(data.email, 320)
+        && data.gender in ['Female', 'Male', 'Other']
+        && data.age is int
+        && data.age >= 13
+        && data.age <= 120
+        && categoryExists(data.preferredCategoryId)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function validWishlist(data) {
+      return data.keys().hasAll([
+          'ownerId',
+          'categoryId',
+          'imageUrl',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId',
+          'categoryId',
+          'imageUrl',
+          'createdAt',
+          'updatedAt'
+        ])
+        && validNonEmptyString(data.ownerId, 128)
+        && categoryExists(data.categoryId)
+        && validString(data.imageUrl, 2048)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function wishlistExists(wishlistId) {
+      return wishlistId is string
+        && exists(/databases/$(database)/documents/wishlists/$(wishlistId));
+    }
+
+    function wishlistBelongsToCurrentUser(wishlistId) {
+      return signedIn()
+        && wishlistExists(wishlistId)
+        && get(
+          /databases/$(database)/documents/wishlists/$(wishlistId)
+        ).data.ownerId == currentUid();
+    }
+
+    function validProductWishlist(data) {
+      return wishlistBelongsToCurrentUser(data.wishlistId)
+        && get(
+          /databases/$(database)/documents/wishlists/$(data.wishlistId)
+        ).data.categoryId == data.categoryId;
+    }
+
+    function validProduct(data) {
+      return data.keys().hasAll([
+          'ownerId',
+          'wishlistId',
+          'categoryId',
+          'name',
+          'brand',
+          'price',
+          'imageUrl',
+          'productUrl',
+          'purchased',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId',
+          'wishlistId',
+          'categoryId',
+          'name',
+          'brand',
+          'price',
+          'imageUrl',
+          'productUrl',
+          'purchased',
+          'createdAt',
+          'updatedAt'
+        ])
+        && validNonEmptyString(data.ownerId, 128)
+        && validNonEmptyString(data.wishlistId, 1500)
+        && validNonEmptyString(data.categoryId, 1500)
+        && validNonEmptyString(data.name, 200)
+        && validNonEmptyString(data.brand, 200)
+        && data.price is number
+        && data.price >= 0
+        && validString(data.imageUrl, 2048)
+        && validString(data.productUrl, 2048)
+        && data.purchased is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && validProductWishlist(data);
+    }
+
+    match /users/{uid} {
+      allow get: if signedIn() && currentUid() == uid;
+      allow list: if false;
+
+      allow create: if signedIn()
+        && currentUid() == uid
+        && validUser(request.resource.data)
+        && request.auth.token.email is string
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      allow update: if signedIn()
+        && currentUid() == uid
+        && validUser(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name',
+          'gender',
+          'age',
+          'preferredCategoryId',
+          'updatedAt'
+        ])
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if false;
+    }
+
+    match /categories/{categoryId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    match /wishlists/{wishlistId} {
+      allow get: if signedIn() && resource.data.ownerId == currentUid();
+      allow list: if signedIn() && resource.data.ownerId == currentUid();
+
+      allow create: if signedIn()
+        && validWishlist(request.resource.data)
+        && request.resource.data.ownerId == currentUid()
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      allow update, delete: if false;
+    }
+
+    match /products/{productId} {
+      allow get: if signedIn()
+        && (
+          resource.data.ownerId == currentUid()
+          || wishlistBelongsToCurrentUser(resource.data.wishlistId)
+        );
+
+      allow list: if signedIn()
+        && (
+          resource.data.ownerId == currentUid()
+          || wishlistBelongsToCurrentUser(resource.data.wishlistId)
+        );
+
+      allow create: if signedIn()
+        && validProduct(request.resource.data)
+        && request.resource.data.ownerId == currentUid()
+        && request.resource.data.purchased == false
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      allow update: if signedIn()
+        && resource.data.ownerId == currentUid()
+        && request.resource.data.ownerId == currentUid()
+        && validProduct(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'wishlistId',
+          'categoryId',
+          'name',
+          'brand',
+          'price',
+          'imageUrl',
+          'productUrl',
+          'purchased',
+          'updatedAt'
+        ])
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if signedIn() && resource.data.ownerId == currentUid();
+    }
+
+    match /adminMetrics/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /productEvents/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /processedEvents/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

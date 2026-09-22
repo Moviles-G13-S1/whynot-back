@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "local": "demo-whynot",
+    "production": "whynot-f4ae6"
+  }
+}
