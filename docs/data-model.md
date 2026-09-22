@@ -26,12 +26,29 @@ The document ID must equal the authenticated user's UID.
 | `gender` | string | `Female`, `Male`, or `Other` |
 | `age` | integer | 13–120 inclusive |
 | `preferredCategoryId` | string | Must reference an existing category |
+| `cityId` | string | Must reference an existing city; required for new profiles |
 | `createdAt` | timestamp | Server timestamp on create; immutable |
 | `updatedAt` | timestamp | Server timestamp on every write |
 
-Clients may create, get, and update their own profile. Profile collection
-listing and client deletion are denied. Updates are limited to `name`,
-`gender`, `age`, `preferredCategoryId`, and `updatedAt`.
+Clients may create, get, and update their own profile. Only an administrator
+with the `admin: true` claim may list profiles for demographic figures.
+Regular users cannot list profiles, and client deletion is denied. Updates
+are limited to `name`,
+`gender`, `age`, `preferredCategoryId`, `cityId`, and `updatedAt`. Older
+profiles may lack `cityId` until their next profile edit.
+
+## `cities/{cityId}`
+
+| Field | Type | Validation |
+|---|---|---|
+| `name` | string | Canonical display name |
+
+The initial catalog contains 24 main Colombian cities from DANE and `other`.
+IDs are stable, lowercase, and omit accents (for example, `bogota` has the
+display name `Bogotá`). The client searches this catalog and stores only the
+selected ID in the user profile. It does not store free-text city names or
+device location. Authenticated clients may read cities; only a privileged
+seed script may change them.
 
 ## `categories/{categoryId}`
 
@@ -85,7 +102,8 @@ change must use a deterministic ID or a transactional callable function.
 | `price` | number | Greater than or equal to zero |
 | `imageUrl` | string | Up to 2,048 characters; may be empty |
 | `productUrl` | string | Up to 2,048 characters; may be empty |
-| `purchased` | boolean | Must be `false` on create |
+| `purchased` | boolean | Must be `false` on create; may only transition to `true` |
+| `purchasedAt` | timestamp or null | `null` until purchase; server timestamp on the one-way purchase transition |
 | `createdAt` | timestamp | Server timestamp on create; immutable |
 | `updatedAt` | timestamp | Server timestamp on every write |
 
@@ -93,9 +111,15 @@ Owners may create, get, query, update, and delete products. A product can move
 only to another wishlist owned by the same user, and `categoryId` must be
 updated to match the destination wishlist.
 
-`saveMethod` and `purchasedAt` belong to Phase 4. They are deliberately
-rejected by the Phase 1 rules until rules, tests, documentation, existing data,
-and both clients migrate together.
+Marking a product as purchased is irreversible while it exists. Deleting a
+product deletes its document and removes it from product-based admin metrics.
+There is no retained purchase history in this version. Administrators may
+list products to calculate the purchase metric; regular users cannot list all
+products.
+
+Only manual product creation exists. `saveMethod` is not part of the current
+contract and the automatic-versus-manual administrative metric is deferred
+until an automatic save flow actually exists.
 
 ## Administrative and internal collections
 
@@ -110,12 +134,15 @@ The metric schemas and generation pipeline belong to Phase 4. Phase 2 opens
 only the least-privilege read boundary so the future dashboard integration
 does not require another authorization redesign.
 
-### Backend-only collections
+### Reserved internal collections
 
 Client reads and writes are denied for these collections, including when the
 caller has the administrator claim:
 
 - `productEvents`
 - `processedEvents`
+
+No purchase events are created for new purchases. These paths remain blocked
+for clients but are not used by the current analytics flow.
 
 All other undocumented paths are denied by default.

@@ -12,6 +12,7 @@
     "test": "npm run test:rules",
     "test:rules": "firebase emulators:exec --only firestore --project demo-whynot \"mocha --timeout 15000 tests/firestore-rules/**/*.test.mjs\"",
     "seed:categories": "node scripts/seed-categories/index.mjs",
+    "seed:cities": "node scripts/seed-cities/index.mjs",
     "assign-admin": "node scripts/assign-admin-role/index.mjs",
     "deploy:firestore": "npm run test:rules && firebase deploy --only firestore",
     "seed:stores": "node scripts/seed-stores/index.mjs",
