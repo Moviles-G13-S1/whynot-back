@@ -47,8 +47,8 @@ The initial catalog contains 24 main Colombian cities from DANE and `other`.
 IDs are stable, lowercase, and omit accents (for example, `bogota` has the
 display name `Bogotá`). The client searches this catalog and stores only the
 selected ID in the user profile. It does not store free-text city names or
-device location. Authenticated clients may read cities; only a privileged
-seed script may change them.
+device location. Anyone may read cities so the catalog works before sign-in;
+only a privileged seed script may change them.
 
 ## `categories/{categoryId}`
 

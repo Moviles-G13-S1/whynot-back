@@ -224,8 +224,12 @@ describe('default and category access', () => {
     await assertFails(updateDoc(doc(forgedAdmin, 'categories/fashion'), { name: 'Changed' }));
   });
 
-  it('allows signed-in users to read cities but not edit them', async () => {
+  it('allows anyone to read cities but not edit them', async () => {
+    const visitor = unauthenticatedFirestore();
     const alice = firestoreFor(aliceUid, aliceEmail);
+    await assertSucceeds(getDocs(collection(visitor, 'cities')));
+    await assertSucceeds(getDoc(doc(visitor, 'cities/bogota')));
+    await assertFails(setDoc(doc(visitor, 'cities/new'), { name: 'New' }));
     await assertSucceeds(getDocs(collection(alice, 'cities')));
     await assertSucceeds(getDoc(doc(alice, 'cities/bogota')));
     await assertFails(setDoc(doc(alice, 'cities/new'), { name: 'New' }));
