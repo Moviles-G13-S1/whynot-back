@@ -16,10 +16,11 @@ Project ID: whynot-f4ae6
 Do not create a platform-specific Firebase project and never commit service
 account keys or other credentials.
 
-## Phase 1 contents
+## Implemented foundation
 
 ```text
 docs/data-model.md                         Shared Firestore contract
+docs/authentication.md                     Admin role and provisioning contract
 firestore.rules                           Client authorization and validation
 firestore.indexes.json                    Versioned index manifest
 firebase.json                             Emulator and deployment configuration
@@ -28,16 +29,18 @@ scripts/seed-categories/                  Idempotent canonical category seed
 scripts/assign-admin-role/                Privileged custom-claim management
 ```
 
-The current collections are `users`, `categories`, `wishlists`, and
-`products`. Future internal collections (`adminMetrics`, `productEvents`, and
-`processedEvents`) are explicitly inaccessible to clients until their phases
-are implemented.
+The current user-facing collections are `users`, `categories`, `wishlists`,
+and `products`. Administrators with the `admin: true` custom claim may read
+aggregate documents under `adminMetrics`; no client may write those documents.
+`productEvents` and `processedEvents` remain backend-only.
 
 Phase 1 was deployed to the default Firestore database in `whynot-f4ae6` on
 2026-09-21 after all 17 Security Rules tests passed.
 
 See [docs/data-model.md](docs/data-model.md) before changing any field,
 collection, or allowed operation.
+See [docs/authentication.md](docs/authentication.md) for administrator
+provisioning, revocation, token refresh, and authorization boundaries.
 
 ## Prerequisites
 
@@ -165,9 +168,9 @@ npm run assign-admin -- \
   --revoke
 ```
 
-The user must refresh their Firebase ID token after a claim changes. Phase 1
-does not grant admins client access to Firestore; admin-specific rules and
-route guards belong to Phase 2.
+The user must sign out and sign back in after a claim changes. The Flutter
+login flow also forces an ID-token refresh before selecting the regular or
+administrative destination.
 
 Passwords, ID tokens, and credential JSON are not command arguments and must
 not be placed in this repository.
@@ -198,6 +201,10 @@ next deployment.
 - Users can access only their own profiles, wishlists, and products.
 - Categories are readable by authenticated users and writable only by trusted
   Admin SDK code.
+- Aggregate metrics are readable only with the Firebase Authentication custom
+  claim `admin: true` and are never client-writable.
+- Product events and processed-event markers remain inaccessible to every
+  client, including administrators.
 - Wishlist update/delete remains denied until cascade behavior is defined.
 - One-wishlist-per-category is currently a UI behavior, not an enforceable
   backend invariant, because wishlists use random document IDs.
