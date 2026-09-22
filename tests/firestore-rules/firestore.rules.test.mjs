@@ -162,6 +162,22 @@ async function seedFixtures({ includeUsers = false, includeProducts = false } = 
         }),
       ]);
     }
+
+    await Promise.all([
+      setDoc(doc(firestore, 'adminMetrics/overview'), {
+        totalUsers: 2,
+        totalProducts: includeProducts ? 2 : 0,
+      }),
+      setDoc(doc(firestore, 'adminMetrics/purchases/2026/09'), {
+        total: 1,
+      }),
+      setDoc(doc(firestore, 'productEvents/event-1'), {
+        eventType: 'saved',
+      }),
+      setDoc(doc(firestore, 'processedEvents/event-1'), {
+        processedAt: timestamp,
+      }),
+    ]);
   });
 }
 
@@ -187,6 +203,7 @@ describe('default and category access', () => {
     const firestore = unauthenticatedFirestore();
 
     await assertFails(getDoc(doc(firestore, 'categories/fashion')));
+    await assertFails(getDoc(doc(firestore, 'adminMetrics/overview')));
     await assertFails(setDoc(doc(firestore, 'products/product-1'), validProduct()));
   });
 
@@ -200,17 +217,35 @@ describe('default and category access', () => {
     await assertFails(updateDoc(doc(forgedAdmin, 'categories/fashion'), { name: 'Changed' }));
   });
 
-  it('denies internal and unknown collections', async () => {
-    const alice = firestoreFor(aliceUid, aliceEmail, { admin: true });
+  it('allows only administrators to read aggregate metrics', async () => {
+    const regularUser = firestoreFor(aliceUid, aliceEmail);
+    const admin = firestoreFor(aliceUid, aliceEmail, { admin: true });
+
+    await assertFails(getDoc(doc(regularUser, 'adminMetrics/overview')));
+    await assertFails(getDocs(collection(regularUser, 'adminMetrics')));
+    await assertSucceeds(getDoc(doc(admin, 'adminMetrics/overview')));
+    await assertSucceeds(getDocs(collection(admin, 'adminMetrics')));
+    await assertSucceeds(
+      getDoc(doc(admin, 'adminMetrics/purchases/2026/09')),
+    );
+  });
+
+  it('denies metric writes and event access even to administrators', async () => {
+    const admin = firestoreFor(aliceUid, aliceEmail, { admin: true });
+
+    await assertFails(setDoc(doc(admin, 'adminMetrics/new'), { value: true }));
+    await assertFails(updateDoc(doc(admin, 'adminMetrics/overview'), {
+      totalUsers: 99,
+    }));
+    await assertFails(deleteDoc(doc(admin, 'adminMetrics/overview')));
 
     for (const path of [
-      'adminMetrics/overview',
       'productEvents/event-1',
       'processedEvents/event-1',
       'unknown/document-1',
     ]) {
-      await assertFails(getDoc(doc(alice, path)));
-      await assertFails(setDoc(doc(alice, path), { value: true }));
+      await assertFails(getDoc(doc(admin, path)));
+      await assertFails(setDoc(doc(admin, path), { value: true }));
     }
   });
 });

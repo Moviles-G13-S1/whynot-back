@@ -1,6 +1,6 @@
 # WhyNot Firestore data contract
 
-This document defines the Phase 1 contract shared by all WhyNot clients. The
+This document defines the current contract shared by all WhyNot clients. The
 Security Rules in `firestore.rules` are authoritative for client access and
 validation. Firebase Admin SDK code bypasses those rules and must enforce the
 same contract deliberately.
@@ -97,11 +97,24 @@ updated to match the destination wishlist.
 rejected by the Phase 1 rules until rules, tests, documentation, existing data,
 and both clients migrate together.
 
-## Reserved internal collections
+## Administrative and internal collections
 
-Client reads and writes are denied for:
+### `adminMetrics/{document=**}`
 
-- `adminMetrics`
+Authenticated users whose Firebase ID token contains the custom claim
+`admin: true` may read aggregate metric documents at any depth. Regular users
+and unauthenticated clients cannot read them. All client writes are denied;
+trusted backend code writes these documents with the Admin SDK.
+
+The metric schemas and generation pipeline belong to Phase 4. Phase 2 opens
+only the least-privilege read boundary so the future dashboard integration
+does not require another authorization redesign.
+
+### Backend-only collections
+
+Client reads and writes are denied for these collections, including when the
+caller has the administrator claim:
+
 - `productEvents`
 - `processedEvents`
 
