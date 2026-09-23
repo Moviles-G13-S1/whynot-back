@@ -43,10 +43,13 @@ else:
 def get_age_group(age):
     if age <= 17:
         return "13-17"
+
     if age <= 24:
         return "18-24"
+
     if age <= 34:
         return "25-34"
+
     if age <= 44:
         return "35-44"
 
@@ -223,7 +226,10 @@ def get_recommendation(req: https_fn.CallableRequest):
     current_uid = req.auth.uid
     db = firestore.client()
 
-    # 1. Get the current user.
+    # -----------------------------------------------------------------------
+    # 1. Get current user
+    # -----------------------------------------------------------------------
+
     current_user_document = (
         db.collection("users")
         .document(current_uid)
@@ -238,10 +244,28 @@ def get_recommendation(req: https_fn.CallableRequest):
 
     current_user = current_user_document.to_dict()
 
-    # 2. Find the most similar user.
-    best_user_id = None
-    best_score = -1
-    best_age_difference = float("inf")
+    preferred_category = current_user["preferredCategoryId"]
+
+    # -----------------------------------------------------------------------
+    # 2. Read products already owned by current user
+    # -----------------------------------------------------------------------
+
+    current_products = (
+        db.collection("products")
+        .where("ownerId", "==", current_uid)
+        .stream()
+    )
+
+    current_product_keys = {
+        get_product_key(document.to_dict())
+        for document in current_products
+    }
+
+    # -----------------------------------------------------------------------
+    # 3. Rank other users by demographic similarity
+    # -----------------------------------------------------------------------
+
+    ranked_users = []
 
     for user_document in db.collection("users").stream():
         if user_document.id == current_uid:
@@ -258,86 +282,130 @@ def get_recommendation(req: https_fn.CallableRequest):
             current_user["age"] - other_user["age"]
         )
 
-        if score > best_score:
-            best_score = score
-            best_age_difference = age_difference
-            best_user_id = user_document.id
+        ranked_users.append(
+            {
+                "id": user_document.id,
+                "score": score,
+                "ageDifference": age_difference,
+            }
+        )
 
-        elif (
-            score == best_score
-            and age_difference < best_age_difference
-        ):
-            best_age_difference = age_difference
-            best_user_id = user_document.id
-
-    if best_user_id is None:
+    if not ranked_users:
         return {
             "recommendation": None,
             "message": "No other users were found.",
         }
 
-    # 3. Read the current user's products.
-    current_products = (
-        db.collection("products")
-        .where("ownerId", "==", current_uid)
-        .stream()
+    # Most similar users first.
+    #
+    # First:
+    #   higher demographic similarity score
+    #
+    # Second:
+    #   smaller age difference
+    #
+    # Third:
+    #   document ID only provides deterministic ordering
+    #   if everything else is tied.
+    ranked_users.sort(
+        key=lambda user: (
+            -user["score"],
+            user["ageDifference"],
+            user["id"],
+        )
     )
 
-    current_product_keys = {
-        get_product_key(document.to_dict())
-        for document in current_products
-    }
+    # -----------------------------------------------------------------------
+    # 4. Find the most similar user that actually has a useful product
+    # -----------------------------------------------------------------------
 
-    # 4. Read products from the most similar user.
-    similar_user_products = (
-        db.collection("products")
-        .where("ownerId", "==", best_user_id)
-        .stream()
-    )
+    recommendation = None
+    reason = None
 
-    purchased_candidates = []
-    saved_candidates = []
-
-    for product_document in similar_user_products:
-        product = product_document.to_dict()
-
-        if get_product_key(product) in current_product_keys:
-            continue
-
-        candidate = {
-            "id": product_document.id,
-            **product,
-        }
-
-        if product["purchased"]:
-            purchased_candidates.append(candidate)
-        else:
-            saved_candidates.append(candidate)
-
-    # 5. Prefer a purchased product.
-    if purchased_candidates:
-        recommendation = purchased_candidates[0]
-        reason = (
-            "A user with similar demographics bought this product."
+    for candidate_user in ranked_users:
+        user_products = (
+            db.collection("products")
+            .where("ownerId", "==", candidate_user["id"])
+            .stream()
         )
 
-    elif saved_candidates:
-        recommendation = saved_candidates[0]
-        reason = (
-            "A user with similar demographics saved this product."
-        )
+        purchased_candidates = []
+        saved_candidates = []
 
-    else:
+        for product_document in user_products:
+            product = product_document.to_dict()
+
+            # The product must belong to the category
+            # preferred by the current user.
+            #
+            # Example:
+            #
+            # preferredCategoryId = "technology"
+            #
+            # fashion     -> ignored
+            # beauty      -> ignored
+            # technology  -> candidate
+            if product.get("categoryId") != preferred_category:
+                continue
+
+            # Do not recommend something the current user
+            # already owns or has already saved.
+            if get_product_key(product) in current_product_keys:
+                continue
+
+            candidate = {
+                "id": product_document.id,
+                **product,
+            }
+
+            # Purchased products are stronger recommendations,
+            # but only inside the preferred category.
+            if product.get("purchased", False):
+                purchased_candidates.append(candidate)
+            else:
+                saved_candidates.append(candidate)
+
+        # Prefer a purchased product from this similar user.
+        if purchased_candidates:
+            recommendation = purchased_candidates[0]
+
+            reason = (
+                "A user with similar demographics bought this product."
+            )
+
+            break
+
+        # If the user has not purchased anything useful,
+        # a saved product is also a valid recommendation.
+        if saved_candidates:
+            recommendation = saved_candidates[0]
+
+            reason = (
+                "A user with similar demographics saved this product."
+            )
+
+            break
+
+        # If this similar user has no useful products in the
+        # preferred category, continue to the next most similar user.
+
+    # -----------------------------------------------------------------------
+    # 5. No valid recommendation found
+    # -----------------------------------------------------------------------
+
+    if recommendation is None:
         return {
             "recommendation": None,
             "message": (
-                "The most similar user has no new products "
-                "to recommend."
+                "No similar user has a new product "
+                "in the preferred category."
             ),
         }
 
-    # 6. Create a private event proving that this recommendation
-    # was actually generated for this authenticated user.
+    # -----------------------------------------------------------------------
+    # 6. Register recommendation event
+    # -----------------------------------------------------------------------
+
     recommendation_event_ref = (
         db.collection("productEvents")
         .document()
@@ -354,7 +422,10 @@ def get_recommendation(req: https_fn.CallableRequest):
         }
     )
 
-    # 7. Return exactly one recommendation.
+    # -----------------------------------------------------------------------
+    # 7. Return recommendation
+    # -----------------------------------------------------------------------
+
     return {
         "recommendation": {
             "recommendationEventId": recommendation_event_ref.id,
@@ -392,6 +463,7 @@ def save_recommended_product(req: https_fn.CallableRequest):
     recommendation_event_id = req.data.get(
         "recommendationEventId"
     )
+
     wishlist_id = req.data.get("wishlistId")
 
     if (
@@ -418,7 +490,10 @@ def save_recommended_product(req: https_fn.CallableRequest):
     current_uid = req.auth.uid
     db = firestore.client()
 
-    # 1. Validate the recommendation event.
+    # -----------------------------------------------------------------------
+    # 1. Validate recommendation event
+    # -----------------------------------------------------------------------
+
     event_ref = (
         db.collection("productEvents")
         .document(recommendation_event_id)
@@ -449,8 +524,11 @@ def save_recommended_product(req: https_fn.CallableRequest):
             ),
         )
 
-    # If this event was already consumed, return the previous result.
-    # This makes network retries and double taps idempotent.
+    # If this recommendation was already saved,
+    # return the previous result.
+    #
+    # This makes the operation idempotent and prevents
+    # double taps or network retries from incrementing BQ3 twice.
     if event.get("savedAt") is not None:
         return {
             "saved": True,
@@ -469,7 +547,10 @@ def save_recommended_product(req: https_fn.CallableRequest):
             message="The recommendation has no source product.",
         )
 
-    # 2. Read and validate the source product.
+    # -----------------------------------------------------------------------
+    # 2. Read and validate source product
+    # -----------------------------------------------------------------------
+
     source_product_ref = (
         db.collection("products")
         .document(source_product_id)
@@ -496,7 +577,10 @@ def save_recommended_product(req: https_fn.CallableRequest):
             ),
         )
 
-    # 3. Validate the destination wishlist.
+    # -----------------------------------------------------------------------
+    # 3. Validate destination wishlist
+    # -----------------------------------------------------------------------
+
     wishlist_ref = (
         db.collection("wishlists")
         .document(wishlist_id)
@@ -530,7 +614,10 @@ def save_recommended_product(req: https_fn.CallableRequest):
             ),
         )
 
-    # 4. Generate a deterministic destination product ID.
+    # -----------------------------------------------------------------------
+    # 4. Generate deterministic destination product ID
+    # -----------------------------------------------------------------------
+
     saved_product_id = get_recommended_product_copy_id(
         current_uid,
         source_product_id,
@@ -541,7 +628,10 @@ def save_recommended_product(req: https_fn.CallableRequest):
         .document(saved_product_id)
     )
 
-    # 5. Do not duplicate a product that the user already saved manually.
+    # -----------------------------------------------------------------------
+    # 5. Prevent manual duplicate
+    # -----------------------------------------------------------------------
+
     source_product_key = get_product_key(source_product)
 
     current_products = (
@@ -565,6 +655,10 @@ def save_recommended_product(req: https_fn.CallableRequest):
                 message="This product is already saved.",
             )
 
+    # -----------------------------------------------------------------------
+    # 6. BQ3 metric
+    # -----------------------------------------------------------------------
+
     metric_ref = (
         db.collection("adminMetrics")
         .document("recommendedProductSaves")
@@ -572,7 +666,10 @@ def save_recommended_product(req: https_fn.CallableRequest):
 
     transaction = db.transaction()
 
-    # 6. Save the recommendation and increment BQ3 atomically.
+    # -----------------------------------------------------------------------
+    # 7. Save recommendation and increment BQ3 atomically
+    # -----------------------------------------------------------------------
+
     @firestore.transactional
     def save_in_transaction(transaction):
         event_snapshot = event_ref.get(
@@ -602,6 +699,8 @@ def save_recommended_product(req: https_fn.CallableRequest):
                 ),
             )
 
+        # Another request may have consumed the event
+        # while this request was waiting.
         if event_data.get("savedAt") is not None:
             return {
                 "saved": True,
@@ -617,6 +716,8 @@ def save_recommended_product(req: https_fn.CallableRequest):
             transaction=transaction
         )
 
+        # If the deterministic product already exists,
+        # do not increment BQ3 again.
         if existing_saved_product.exists:
             transaction.update(
                 event_ref,
@@ -632,8 +733,10 @@ def save_recommended_product(req: https_fn.CallableRequest):
                 "productId": saved_product_id,
             }
 
+        # Current BQ3 total.
         if metric_snapshot.exists:
             metric_data = metric_snapshot.to_dict()
+
             current_total = metric_data.get("total", 0)
 
             if (
@@ -642,9 +745,12 @@ def save_recommended_product(req: https_fn.CallableRequest):
                 or current_total < 0
             ):
                 current_total = 0
+
         else:
             current_total = 0
 
+        # Save a copy of the recommended product
+        # inside the authenticated user's wishlist.
         transaction.set(
             saved_product_ref,
             {
@@ -663,6 +769,7 @@ def save_recommended_product(req: https_fn.CallableRequest):
             },
         )
 
+        # Mark the recommendation event as consumed.
         transaction.update(
             event_ref,
             {
@@ -671,6 +778,7 @@ def save_recommended_product(req: https_fn.CallableRequest):
             },
         )
 
+        # Increment BQ3.
         transaction.set(
             metric_ref,
             {
@@ -726,7 +834,10 @@ def get_nearest_store(req: https_fn.CallableRequest):
     current_uid = req.auth.uid
     db = firestore.client()
 
-    # 1. Get the current user's preferred category.
+    # -----------------------------------------------------------------------
+    # 1. Get current user's preferred category
+    # -----------------------------------------------------------------------
+
     current_user_document = (
         db.collection("users")
         .document(current_uid)
@@ -740,12 +851,16 @@ def get_nearest_store(req: https_fn.CallableRequest):
         )
 
     current_user = current_user_document.to_dict()
+
     preferred_category = current_user["preferredCategoryId"]
 
     matching_stores = []
     all_stores = []
 
-    # 2. Loop through stores and calculate their distance.
+    # -----------------------------------------------------------------------
+    # 2. Calculate distance to stores
+    # -----------------------------------------------------------------------
+
     for store_document in db.collection("stores").stream():
         store = store_document.to_dict()
 
@@ -773,14 +888,20 @@ def get_nearest_store(req: https_fn.CallableRequest):
             "message": "No stores were found.",
         }
 
-    # 3. Prefer stores related to the user's preferred category.
+    # -----------------------------------------------------------------------
+    # 3. Prefer stores related to preferred category
+    # -----------------------------------------------------------------------
+
     candidates = (
         matching_stores
         if matching_stores
         else all_stores
     )
 
-    # 4. Find the nearest store.
+    # -----------------------------------------------------------------------
+    # 4. Find nearest store
+    # -----------------------------------------------------------------------
+
     nearest_store = None
     shortest_distance = float("inf")
 
@@ -789,7 +910,10 @@ def get_nearest_store(req: https_fn.CallableRequest):
             shortest_distance = store["distanceKm"]
             nearest_store = store
 
-    # 5. Return exactly one store.
+    # -----------------------------------------------------------------------
+    # 5. Return store
+    # -----------------------------------------------------------------------
+
     return {
         "store": {
             "id": nearest_store["id"],
