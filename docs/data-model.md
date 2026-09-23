@@ -9,11 +9,13 @@ same contract deliberately.
 
 - Firebase Authentication UIDs identify users and owners.
 - Timestamps are Firestore `timestamp` values written with a server timestamp.
-- Unknown fields are rejected.
+- Unknown fields are rejected for client-writable user-facing documents.
 - Document ownership and `createdAt` cannot be changed by a client.
 - Category IDs are stable identifiers rather than display names.
 - External image/product links remain strings; Firebase Storage is not used.
 - Passwords and roles are never stored in user documents.
+- Backend-only analytics events are never directly readable or writable by
+  mobile clients.
 
 ## `users/{uid}`
 
@@ -33,9 +35,8 @@ The document ID must equal the authenticated user's UID.
 Clients may create, get, and update their own profile. Only an administrator
 with the `admin: true` claim may list profiles for demographic figures.
 Regular users cannot list profiles, and client deletion is denied. Updates
-are limited to `name`,
-`gender`, `age`, `preferredCategoryId`, `cityId`, and `updatedAt`. Older
-profiles may lack `cityId` until their next profile edit.
+are limited to `name`, `gender`, `age`, `preferredCategoryId`, `cityId`, and
+`updatedAt`. Older profiles may lack `cityId` until their next profile edit.
 
 ## `cities/{cityId}`
 
@@ -113,36 +114,24 @@ updated to match the destination wishlist.
 
 Marking a product as purchased is irreversible while it exists. Deleting a
 product deletes its document and removes it from product-based admin metrics.
-There is no retained purchase history in this version. Administrators may
-list products to calculate the purchase metric; regular users cannot list all
-products.
+There is no retained purchase history in this version.
 
-Only manual product creation exists. `saveMethod` is not part of the current
-contract and the automatic-versus-manual administrative metric is deferred
-until an automatic save flow actually exists.
+### Manual product save
 
-## Administrative and internal collections
+The existing manual product flow remains unchanged. A mobile client creates a
+valid `products/{productId}` document through the normal product repository and
+Firestore Security Rules.
 
-### `adminMetrics/{document=**}`
+A manual save does not create a recommendation event and does not increment the
+BQ3 metric.
 
-Authenticated users whose Firebase ID token contains the custom claim
-`admin: true` may read aggregate metric documents at any depth. Regular users
-and unauthenticated clients cannot read them. All client writes are denied;
-trusted backend code writes these documents with the Admin SDK.
+`saveMethod` is still not part of the product contract. The distinction needed
+for BQ3 is represented by the backend recommendation-save flow rather than by
+adding a required field to every product.
 
-The metric schemas and generation pipeline belong to Phase 4. Phase 2 opens
-only the least-privilege read boundary so the future dashboard integration
-does not require another authorization redesign.
+### Product saved from a recommendation
 
-### Reserved internal collections
+Saving from the Smart Recommendation screen uses the callable Cloud Function:
 
-Client reads and writes are denied for these collections, including when the
-caller has the administrator claim:
-
-- `productEvents`
-- `processedEvents`
-
-No purchase events are created for new purchases. These paths remain blocked
-for clients but are not used by the current analytics flow.
-
-All other undocumented paths are denied by default.
+```text
+save_recommended_product(recommendationEventId, wishlistId)

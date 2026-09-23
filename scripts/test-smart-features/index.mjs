@@ -30,6 +30,8 @@ const similarEmail = 'similar@example.com';
 
 const password = 'Test123456!';
 
+let adminFirestore;
+
 
 async function ensureAuthUser(auth, uid, email) {
   try {
@@ -50,7 +52,7 @@ async function seedData() {
   });
 
   const auth = getAdminAuth(adminApp);
-  const firestore = getFirestore(adminApp);
+  adminFirestore = getFirestore(adminApp);
 
   await ensureAuthUser(
     auth,
@@ -64,7 +66,14 @@ async function seedData() {
     similarEmail,
   );
 
-  await firestore
+  await adminFirestore
+    .collection('categories')
+    .doc('fashion')
+    .set({
+      name: 'Fashion',
+    });
+
+  await adminFirestore
     .collection('users')
     .doc(currentUid)
     .set({
@@ -75,7 +84,7 @@ async function seedData() {
       preferredCategoryId: 'fashion',
     });
 
-  await firestore
+  await adminFirestore
     .collection('users')
     .doc(similarUid)
     .set({
@@ -86,7 +95,25 @@ async function seedData() {
       preferredCategoryId: 'fashion',
     });
 
-  await firestore
+  await adminFirestore
+    .collection('wishlists')
+    .doc('current-fashion')
+    .set({
+      ownerId: currentUid,
+      categoryId: 'fashion',
+      imageUrl: '',
+    });
+
+  await adminFirestore
+    .collection('wishlists')
+    .doc('similar-fashion')
+    .set({
+      ownerId: similarUid,
+      categoryId: 'fashion',
+      imageUrl: '',
+    });
+
+  await adminFirestore
     .collection('products')
     .doc('current-product')
     .set({
@@ -99,9 +126,10 @@ async function seedData() {
       imageUrl: '',
       productUrl: 'https://example.com/basic-shirt',
       purchased: false,
+      purchasedAt: null,
     });
 
-  await firestore
+  await adminFirestore
     .collection('products')
     .doc('recommended-product')
     .set({
@@ -114,9 +142,153 @@ async function seedData() {
       imageUrl: '',
       productUrl: 'https://example.com/black-jacket',
       purchased: true,
+      purchasedAt: new Date(),
     });
 
+  await adminFirestore
+    .collection('adminMetrics')
+    .doc('recommendedProductSaves')
+    .delete()
+    .catch(() => {});
+
   console.log('Local test data seeded.');
+}
+
+
+async function testRecommendationSave(
+  recommendation,
+  functions,
+) {
+  const eventId = recommendation.recommendationEventId;
+
+  if (!eventId) {
+    throw new Error(
+      'Recommendation did not include recommendationEventId.',
+    );
+  }
+
+  const eventBeforeSave = await adminFirestore
+    .collection('productEvents')
+    .doc(eventId)
+    .get();
+
+  if (!eventBeforeSave.exists) {
+    throw new Error(
+      'Recommendation event was not created in productEvents.',
+    );
+  }
+
+  const saveRecommendedProduct = httpsCallable(
+    functions,
+    'save_recommended_product',
+  );
+
+  const firstSaveResult = await saveRecommendedProduct({
+    recommendationEventId: eventId,
+    wishlistId: 'current-fashion',
+  });
+
+  console.log(
+    '\nFirst recommendation save:',
+    firstSaveResult.data,
+  );
+
+  if (!firstSaveResult.data.saved) {
+    throw new Error('Recommended product was not saved.');
+  }
+
+  if (firstSaveResult.data.alreadySaved) {
+    throw new Error(
+      'First recommendation save was incorrectly marked as duplicate.',
+    );
+  }
+
+  const metricAfterFirstSave = await adminFirestore
+    .collection('adminMetrics')
+    .doc('recommendedProductSaves')
+    .get();
+
+  if (!metricAfterFirstSave.exists) {
+    throw new Error('BQ3 metric document was not created.');
+  }
+
+  if (metricAfterFirstSave.data().total !== 1) {
+    throw new Error(
+      `Expected BQ3 total 1, got ${metricAfterFirstSave.data().total}.`,
+    );
+  }
+
+  const secondSaveResult = await saveRecommendedProduct({
+    recommendationEventId: eventId,
+    wishlistId: 'current-fashion',
+  });
+
+  console.log(
+    '\nRepeated recommendation save:',
+    secondSaveResult.data,
+  );
+
+  if (!secondSaveResult.data.alreadySaved) {
+    throw new Error(
+      'Repeated save should be idempotent and report alreadySaved.',
+    );
+  }
+
+  const metricAfterSecondSave = await adminFirestore
+    .collection('adminMetrics')
+    .doc('recommendedProductSaves')
+    .get();
+
+  if (metricAfterSecondSave.data().total !== 1) {
+    throw new Error(
+      'Repeated save incorrectly incremented the BQ3 metric.',
+    );
+  }
+
+  const eventAfterSave = await adminFirestore
+    .collection('productEvents')
+    .doc(eventId)
+    .get();
+
+  if (!eventAfterSave.data().savedAt) {
+    throw new Error(
+      'Recommendation event was not marked as saved.',
+    );
+  }
+
+  if (!eventAfterSave.data().savedProductId) {
+    throw new Error(
+      'Recommendation event has no savedProductId.',
+    );
+  }
+
+  const savedProduct = await adminFirestore
+    .collection('products')
+    .doc(eventAfterSave.data().savedProductId)
+    .get();
+
+  if (!savedProduct.exists) {
+    throw new Error(
+      'Saved recommendation product document does not exist.',
+    );
+  }
+
+  if (savedProduct.data().ownerId !== currentUid) {
+    throw new Error(
+      'Saved recommendation product has the wrong owner.',
+    );
+  }
+
+  if (savedProduct.data().purchased !== false) {
+    throw new Error(
+      'A recommended save must create the new product as unpurchased.',
+    );
+  }
+
+  console.log(
+    '\nBQ3 metric:',
+    metricAfterSecondSave.data(),
+  );
 }
 
 
@@ -168,6 +340,19 @@ async function testFunctions() {
   console.log(
     '\nRecommendation result:',
     recommendationResult.data,
+  );
+
+  const recommendation = recommendationResult
+    .data
+    .recommendation;
+
+  if (!recommendation) {
+    throw new Error('No recommendation was returned.');
+  }
+
+  await testRecommendationSave(
+    recommendation,
+    functions,
   );
 
   const getNearestStore = httpsCallable(
