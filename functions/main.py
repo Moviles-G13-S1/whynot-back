@@ -1,10 +1,39 @@
+import hashlib
 import math
+import os
+
+from google.auth.credentials import AnonymousCredentials
 
 from firebase_admin import firestore, initialize_app
 from firebase_functions import https_fn
 
 
-initialize_app()
+# ---------------------------------------------------------------------------
+# Firebase initialization
+# ---------------------------------------------------------------------------
+
+IS_EMULATOR = any([
+    os.environ.get("FUNCTIONS_EMULATOR") == "true",
+    os.environ.get("FIREBASE_EMULATOR_HUB") is not None,
+    os.environ.get("FIRESTORE_EMULATOR_HOST") is not None,
+    os.environ.get("FIREBASE_AUTH_EMULATOR_HOST") is not None,
+])
+
+if IS_EMULATOR:
+    project_id = (
+        os.environ.get("GCLOUD_PROJECT")
+        or os.environ.get("GOOGLE_CLOUD_PROJECT")
+        or "demo-whynot"
+    )
+
+    initialize_app(
+        AnonymousCredentials(),
+        {
+            "projectId": project_id,
+        },
+    )
+else:
+    initialize_app()
 
 
 # ---------------------------------------------------------------------------
@@ -55,6 +84,97 @@ def get_product_key(product):
     name = product.get("name", "").strip().lower()
 
     return f"{brand}|{name}"
+
+
+def get_recommended_product_copy_id(
+    user_id,
+    source_product_id,
+):
+    raw_value = f"{user_id}:{source_product_id}".encode("utf-8")
+    digest = hashlib.sha256(raw_value).hexdigest()
+
+    return f"rec_{digest}"
+
+
+def validate_source_product(product):
+    required_string_fields = [
+        "ownerId",
+        "categoryId",
+        "name",
+        "brand",
+        "imageUrl",
+        "productUrl",
+    ]
+
+    for field in required_string_fields:
+        if not isinstance(product.get(field), str):
+            raise https_fn.HttpsError(
+                code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+                message=(
+                    "The recommended product is incomplete or invalid: "
+                    f"{field}."
+                ),
+            )
+
+    if not product["ownerId"].strip():
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+            message="The recommended product has no owner.",
+        )
+
+    if not product["categoryId"].strip():
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+            message="The recommended product has no category.",
+        )
+
+    if not product["name"].strip():
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+            message="The recommended product has an empty name.",
+        )
+
+    if not product["brand"].strip():
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+            message="The recommended product has an empty brand.",
+        )
+
+    if len(product["name"]) > 200:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+            message="The recommended product name is too long.",
+        )
+
+    if len(product["brand"]) > 200:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+            message="The recommended product brand is too long.",
+        )
+
+    if len(product["imageUrl"]) > 2048:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+            message="The recommended product image URL is too long.",
+        )
+
+    if len(product["productUrl"]) > 2048:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+            message="The recommended product URL is too long.",
+        )
+
+    price = product.get("price")
+
+    if (
+        not isinstance(price, (int, float))
+        or isinstance(price, bool)
+        or price < 0
+    ):
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+            message="The recommended product has an invalid price.",
+        )
 
 
 def calculate_distance_km(
@@ -181,14 +301,18 @@ def get_recommendation(req: https_fn.CallableRequest):
     for product_document in similar_user_products:
         product = product_document.to_dict()
 
-        # Do not recommend something the current user already has.
         if get_product_key(product) in current_product_keys:
             continue
 
+        candidate = {
+            "id": product_document.id,
+            **product,
+        }
+
         if product["purchased"]:
-            purchased_candidates.append(product)
+            purchased_candidates.append(candidate)
         else:
-            saved_candidates.append(product)
+            saved_candidates.append(candidate)
 
     # 5. Prefer a purchased product.
     if purchased_candidates:
@@ -212,9 +336,28 @@ def get_recommendation(req: https_fn.CallableRequest):
             ),
         }
 
-    # 6. Return exactly one recommendation.
+    # 6. Create a private event proving that this recommendation
+    # was actually generated for this authenticated user.
+    recommendation_event_ref = (
+        db.collection("productEvents")
+        .document()
+    )
+
+    recommendation_event_ref.set(
+        {
+            "eventType": "recommendation_shown",
+            "userId": current_uid,
+            "sourceProductId": recommendation["id"],
+            "createdAt": firestore.SERVER_TIMESTAMP,
+            "savedAt": None,
+            "savedProductId": None,
+        }
+    )
+
+    # 7. Return exactly one recommendation.
     return {
         "recommendation": {
+            "recommendationEventId": recommendation_event_ref.id,
             "name": recommendation["name"],
             "brand": recommendation["brand"],
             "price": recommendation["price"],
@@ -224,6 +367,327 @@ def get_recommendation(req: https_fn.CallableRequest):
             "reason": reason,
         }
     }
+
+
+# ---------------------------------------------------------------------------
+# BQ3: save a product from a recommendation
+# ---------------------------------------------------------------------------
+
+@https_fn.on_call()
+def save_recommended_product(req: https_fn.CallableRequest):
+    if req.auth is None:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.UNAUTHENTICATED,
+            message="You must be logged in.",
+        )
+
+    if not isinstance(req.data, dict):
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
+            message=(
+                "recommendationEventId and wishlistId are required."
+            ),
+        )
+
+    recommendation_event_id = req.data.get(
+        "recommendationEventId"
+    )
+    wishlist_id = req.data.get("wishlistId")
+
+    if (
+        not isinstance(recommendation_event_id, str)
+        or not recommendation_event_id.strip()
+    ):
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
+            message="recommendationEventId is required.",
+        )
+
+    if (
+        not isinstance(wishlist_id, str)
+        or not wishlist_id.strip()
+    ):
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
+            message="wishlistId is required.",
+        )
+
+    recommendation_event_id = recommendation_event_id.strip()
+    wishlist_id = wishlist_id.strip()
+
+    current_uid = req.auth.uid
+    db = firestore.client()
+
+    # 1. Validate the recommendation event.
+    event_ref = (
+        db.collection("productEvents")
+        .document(recommendation_event_id)
+    )
+
+    event_document = event_ref.get()
+
+    if not event_document.exists:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.NOT_FOUND,
+            message="Recommendation event not found.",
+        )
+
+    event = event_document.to_dict()
+
+    if event.get("eventType") != "recommendation_shown":
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+            message="Invalid recommendation event.",
+        )
+
+    if event.get("userId") != current_uid:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
+            message=(
+                "This recommendation does not belong "
+                "to the current user."
+            ),
+        )
+
+    # If this event was already consumed, return the previous result.
+    # This makes network retries and double taps idempotent.
+    if event.get("savedAt") is not None:
+        return {
+            "saved": True,
+            "alreadySaved": True,
+            "productId": event.get("savedProductId"),
+        }
+
+    source_product_id = event.get("sourceProductId")
+
+    if (
+        not isinstance(source_product_id, str)
+        or not source_product_id
+    ):
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+            message="The recommendation has no source product.",
+        )
+
+    # 2. Read and validate the source product.
+    source_product_ref = (
+        db.collection("products")
+        .document(source_product_id)
+    )
+
+    source_product_document = source_product_ref.get()
+
+    if not source_product_document.exists:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+            message="The recommended product no longer exists.",
+        )
+
+    source_product = source_product_document.to_dict()
+
+    validate_source_product(source_product)
+
+    if source_product["ownerId"] == current_uid:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+            message=(
+                "You cannot save your own product "
+                "as a recommendation."
+            ),
+        )
+
+    # 3. Validate the destination wishlist.
+    wishlist_ref = (
+        db.collection("wishlists")
+        .document(wishlist_id)
+    )
+
+    wishlist_document = wishlist_ref.get()
+
+    if not wishlist_document.exists:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.NOT_FOUND,
+            message="Wishlist not found.",
+        )
+
+    wishlist = wishlist_document.to_dict()
+
+    if wishlist.get("ownerId") != current_uid:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
+            message=(
+                "The wishlist does not belong "
+                "to the current user."
+            ),
+        )
+
+    if wishlist.get("categoryId") != source_product["categoryId"]:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
+            message=(
+                "The wishlist category must match "
+                "the recommended product category."
+            ),
+        )
+
+    # 4. Generate a deterministic destination product ID.
+    saved_product_id = get_recommended_product_copy_id(
+        current_uid,
+        source_product_id,
+    )
+
+    saved_product_ref = (
+        db.collection("products")
+        .document(saved_product_id)
+    )
+
+    # 5. Do not duplicate a product that the user already saved manually.
+    source_product_key = get_product_key(source_product)
+
+    current_products = (
+        db.collection("products")
+        .where("ownerId", "==", current_uid)
+        .stream()
+    )
+
+    for product_document in current_products:
+        current_product = product_document.to_dict()
+
+        if (
+            get_product_key(current_product)
+            == source_product_key
+        ):
+            if product_document.id == saved_product_id:
+                continue
+
+            raise https_fn.HttpsError(
+                code=https_fn.FunctionsErrorCode.ALREADY_EXISTS,
+                message="This product is already saved.",
+            )
+
+    metric_ref = (
+        db.collection("adminMetrics")
+        .document("recommendedProductSaves")
+    )
+
+    transaction = db.transaction()
+
+    # 6. Save the recommendation and increment BQ3 atomically.
+    @firestore.transactional
+    def save_in_transaction(transaction):
+        event_snapshot = event_ref.get(
+            transaction=transaction
+        )
+
+        if not event_snapshot.exists:
+            raise https_fn.HttpsError(
+                code=https_fn.FunctionsErrorCode.NOT_FOUND,
+                message="Recommendation event not found.",
+            )
+
+        event_data = event_snapshot.to_dict()
+
+        if event_data.get("eventType") != "recommendation_shown":
+            raise https_fn.HttpsError(
+                code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+                message="Invalid recommendation event.",
+            )
+
+        if event_data.get("userId") != current_uid:
+            raise https_fn.HttpsError(
+                code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
+                message=(
+                    "This recommendation does not belong "
+                    "to the current user."
+                ),
+            )
+
+        if event_data.get("savedAt") is not None:
+            return {
+                "saved": True,
+                "alreadySaved": True,
+                "productId": event_data.get("savedProductId"),
+            }
+
+        existing_saved_product = saved_product_ref.get(
+            transaction=transaction
+        )
+
+        metric_snapshot = metric_ref.get(
+            transaction=transaction
+        )
+
+        if existing_saved_product.exists:
+            transaction.update(
+                event_ref,
+                {
+                    "savedAt": firestore.SERVER_TIMESTAMP,
+                    "savedProductId": saved_product_id,
+                },
+            )
+
+            return {
+                "saved": True,
+                "alreadySaved": True,
+                "productId": saved_product_id,
+            }
+
+        if metric_snapshot.exists:
+            metric_data = metric_snapshot.to_dict()
+            current_total = metric_data.get("total", 0)
+
+            if (
+                not isinstance(current_total, int)
+                or isinstance(current_total, bool)
+                or current_total < 0
+            ):
+                current_total = 0
+        else:
+            current_total = 0
+
+        transaction.set(
+            saved_product_ref,
+            {
+                "ownerId": current_uid,
+                "wishlistId": wishlist_id,
+                "categoryId": source_product["categoryId"],
+                "name": source_product["name"],
+                "brand": source_product["brand"],
+                "price": source_product["price"],
+                "imageUrl": source_product["imageUrl"],
+                "productUrl": source_product["productUrl"],
+                "purchased": False,
+                "purchasedAt": None,
+                "createdAt": firestore.SERVER_TIMESTAMP,
+                "updatedAt": firestore.SERVER_TIMESTAMP,
+            },
+        )
+
+        transaction.update(
+            event_ref,
+            {
+                "savedAt": firestore.SERVER_TIMESTAMP,
+                "savedProductId": saved_product_id,
+            },
+        )
+
+        transaction.set(
+            metric_ref,
+            {
+                "metric": "recommendedProductsSaved",
+                "total": current_total + 1,
+                "updatedAt": firestore.SERVER_TIMESTAMP,
+            },
+            merge=True,
+        )
+
+        return {
+            "saved": True,
+            "alreadySaved": False,
+            "productId": saved_product_id,
+        }
+
+    return save_in_transaction(transaction)
 
 
 # ---------------------------------------------------------------------------
@@ -316,7 +780,7 @@ def get_nearest_store(req: https_fn.CallableRequest):
         else all_stores
     )
 
-    # 4. Find the nearest store with a simple loop.
+    # 4. Find the nearest store.
     nearest_store = None
     shortest_distance = float("inf")
 
