@@ -84,6 +84,7 @@ Fixed local endpoints:
 | Emulator UI | `http://127.0.0.1:4000` |
 | Firestore | `127.0.0.1:8080` |
 | Authentication | `127.0.0.1:9099` |
+| Functions | `127.0.0.1:5001` |
 
 Local commands use the non-live `demo-whynot` project. A demo project fails
 closed if code tries to reach a Firebase service that is not emulated.
@@ -108,6 +109,19 @@ query behavior must still be checked before a release.
 The purchase metric counts existing purchased products. Deleting a product
 deletes its document and removes it from that count. No purchase trigger or
 separate purchase-history test is needed.
+
+## Smart feature tests
+
+Run the recommendation and nearby-store flows against isolated Authentication,
+Firestore, and Functions emulators:
+
+```bash
+npm run test:smart-features
+```
+
+The test creates an authenticated user, recommendation data, and stores in
+multiple categories. It verifies that `get_nearest_store` returns the closest
+store in the user's preferred category.
 
 ## Seed categories
 
@@ -213,6 +227,18 @@ This deploys only `firestore.rules` and `firestore.indexes.json`. The initial
 empty composite-index manifest has been deployed. Any future index created in
 the Firebase Console must also be added to `firestore.indexes.json` before the
 next deployment.
+
+## Deploy the nearby-store function
+
+Deploy the callable function with an explicit production target:
+
+```bash
+npm run deploy:functions:nearby -- --project whynot-f4ae6
+```
+
+The command first runs the smart-feature emulator test and deploys only
+`get_nearest_store`. It does not modify Firestore data or redeploy unrelated
+functions.
 
 ## Security decisions
 

@@ -145,6 +145,48 @@ async function seedData() {
       purchasedAt: new Date(),
     });
 
+  // The closest store overall belongs to another category. The nearby-store
+  // function must still prefer the closest store in the user's preferred
+  // category instead of returning this one.
+  await adminFirestore
+    .collection('stores')
+    .doc('technology-closer')
+    .set({
+      name: 'Technology Store',
+      address: 'Test address 1',
+      latitude: 4.6669,
+      longitude: -74.0531,
+      categoryIds: ['technology'],
+      websiteUrl: 'https://example.com/technology',
+      imageUrl: '',
+    });
+
+  await adminFirestore
+    .collection('stores')
+    .doc('fashion-near')
+    .set({
+      name: 'Fashion Store Near',
+      address: 'Test address 2',
+      latitude: 4.6670,
+      longitude: -74.0532,
+      categoryIds: ['fashion'],
+      websiteUrl: 'https://example.com/fashion-near',
+      imageUrl: '',
+    });
+
+  await adminFirestore
+    .collection('stores')
+    .doc('fashion-far')
+    .set({
+      name: 'Fashion Store Far',
+      address: 'Test address 3',
+      latitude: 4.7022,
+      longitude: -74.0415,
+      categoryIds: ['fashion'],
+      websiteUrl: 'https://example.com/fashion-far',
+      imageUrl: '',
+    });
+
   await adminFirestore
     .collection('adminMetrics')
     .doc('recommendedProductSaves')
@@ -369,6 +411,30 @@ async function testFunctions() {
     '\nNearest store result:',
     storeResult.data,
   );
+
+  const store = storeResult.data.store;
+
+  if (!store) {
+    throw new Error('No nearby store was returned.');
+  }
+
+  if (store.id !== 'fashion-near') {
+    throw new Error(
+      `Expected fashion-near, got ${store.id}.`,
+    );
+  }
+
+  if (!store.categoryIds.includes('fashion')) {
+    throw new Error(
+      'Nearby store did not match the preferred category.',
+    );
+  }
+
+  if (typeof store.distanceKm !== 'number') {
+    throw new Error(
+      'Nearby store did not include a numeric distanceKm.',
+    );
+  }
 }
 
 

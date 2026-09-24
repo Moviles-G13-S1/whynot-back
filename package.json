@@ -15,8 +15,9 @@
     "seed:cities": "node scripts/seed-cities/index.mjs",
     "assign-admin": "node scripts/assign-admin-role/index.mjs",
     "deploy:firestore": "npm run test:rules && firebase deploy --only firestore",
+    "deploy:functions:nearby": "npm run test:smart-features && firebase deploy --only functions:get_nearest_store",
     "seed:stores": "node scripts/seed-stores/index.mjs",
-    "test:smart-features": "node scripts/test-smart-features/index.mjs"
+    "test:smart-features": "firebase emulators:exec --only auth,firestore,functions --project demo-whynot \"node scripts/test-smart-features/index.mjs\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "5.0.2",
