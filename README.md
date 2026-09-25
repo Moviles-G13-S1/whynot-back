@@ -24,6 +24,10 @@ docs/authentication.md                     Admin role and provisioning contract
 firestore.rules                           Client authorization and validation
 firestore.indexes.json                    Versioned index manifest
 firebase.json                             Emulator and deployment configuration
+functions/main.py                         Firebase callable entrypoints
+functions/recommendations.py              Recommendation selection logic
+functions/recommended_product_saves.py    Recommended-save and BQ3 metric logic
+functions/nearest_store.py                Nearest relevant store logic
 tests/firestore-rules/                    Emulator-backed rules tests
 scripts/seed-categories/                  Idempotent canonical category seed
 scripts/seed-cities/                      Idempotent canonical city seed
