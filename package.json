@@ -9,7 +9,8 @@
   },
   "scripts": {
     "emulators": "firebase emulators:start --project demo-whynot",
-    "test": "npm run test:rules",
+    "test": "npm run test:unit && npm run test:rules",
+    "test:unit": "python3 -m unittest discover -s tests -p 'test_*.py'",
     "test:rules": "firebase emulators:exec --only firestore --project demo-whynot \"mocha --timeout 15000 tests/firestore-rules/**/*.test.mjs\"",
     "seed:categories": "node scripts/seed-categories/index.mjs",
     "seed:cities": "node scripts/seed-cities/index.mjs",

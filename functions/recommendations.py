@@ -3,6 +3,8 @@
 from firebase_admin import firestore
 from firebase_functions import https_fn
 
+from recommendation_logic import has_valid_demographics
+
 
 def _get_age_group(age):
     if age <= 17:
@@ -71,6 +73,12 @@ def get_recommendation(req: https_fn.CallableRequest):
         )
 
     current_user = current_user_document.to_dict()
+    if not has_valid_demographics(current_user):
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+            message="Complete your profile before requesting recommendations.",
+        )
+
     preferred_category = current_user["preferredCategoryId"]
 
     current_products = (
@@ -89,6 +97,13 @@ def get_recommendation(req: https_fn.CallableRequest):
             continue
 
         other_user = user_document.to_dict()
+
+        # Legacy and partially-created profile documents must not make the
+        # recommendation request fail for every user. They cannot be ranked
+        # reliably, so ignore them until their owners complete their profile.
+        if not has_valid_demographics(other_user):
+            continue
+
         ranked_users.append(
             {
                 "id": user_document.id,
