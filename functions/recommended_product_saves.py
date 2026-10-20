@@ -103,7 +103,7 @@ def _validate_source_product(product):
 
 
 def save_recommended_product(req: https_fn.CallableRequest):
-    """Save a shown recommendation exactly once and increment BQ3."""
+    """Save a shown recommendation exactly once; its event is BQ3's source."""
     if req.auth is None:
         raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.UNAUTHENTICATED,
@@ -251,10 +251,6 @@ def save_recommended_product(req: https_fn.CallableRequest):
                 message="This product is already saved.",
             )
 
-    metric_ref = (
-        db.collection("adminMetrics")
-        .document("recommendedProductSaves")
-    )
     transaction = db.transaction()
 
     @firestore.transactional
@@ -292,7 +288,6 @@ def save_recommended_product(req: https_fn.CallableRequest):
         existing_saved_product = saved_product_ref.get(
             transaction=transaction
         )
-        metric_snapshot = metric_ref.get(transaction=transaction)
 
         if existing_saved_product.exists:
             transaction.update(
@@ -307,18 +302,6 @@ def save_recommended_product(req: https_fn.CallableRequest):
                 "alreadySaved": True,
                 "productId": saved_product_id,
             }
-
-        if metric_snapshot.exists:
-            metric_data = metric_snapshot.to_dict()
-            current_total = metric_data.get("total", 0)
-            if (
-                not isinstance(current_total, int)
-                or isinstance(current_total, bool)
-                or current_total < 0
-            ):
-                current_total = 0
-        else:
-            current_total = 0
 
         transaction.set(
             saved_product_ref,
@@ -344,16 +327,6 @@ def save_recommended_product(req: https_fn.CallableRequest):
                 "savedAt": firestore.SERVER_TIMESTAMP,
                 "savedProductId": saved_product_id,
             },
-        )
-
-        transaction.set(
-            metric_ref,
-            {
-                "metric": "recommendedProductsSaved",
-                "total": current_total + 1,
-                "updatedAt": firestore.SERVER_TIMESTAMP,
-            },
-            merge=True,
         )
 
         return {

@@ -9,7 +9,7 @@ SDK, so clients never need broad read access to compute a metric.
 Request data:
 
 ```json
-{ "metric": "bq6", "params": {} }
+{ "metric": "saved", "params": {} }
 ```
 
 - `metric` (string, required): a key of `METRICS` in
@@ -19,7 +19,7 @@ Request data:
 Response:
 
 ```json
-{ "metric": "bq6", "generatedAt": "2026-10-20T02:10:00.000000+00:00", "data": { } }
+{ "metric": "saved", "generatedAt": "2026-10-20T02:10:00.000000+00:00", "data": { } }
 ```
 
 Errors:
@@ -33,6 +33,24 @@ Errors:
 Authorization uses the same custom claim as `isAdmin()` in `firestore.rules`
 (see [authentication.md](authentication.md)). A user who was just made admin
 must refresh their ID token before the call succeeds.
+
+The metric keys are:
+
+| `metric` | `params` | Source |
+|---|---|---|
+| `saved` | `{}` | Current `products` and `users` (BQ1, BQ2, BQ5) |
+| `recommended` | `{}` | Successful `productEvents` (BQ3) |
+| `purchased` | `{ "months": 6 }` (6, 12, or 24) | Current purchased `products` (BQ4) |
+| `demographic` | `{ "categoryId": "..." }` (optional) | Current product owners, profiles, categories, and cities, matching the Flutter screen |
+| `bq6` | `{}` | Purchased-product buyers, matching the separate Kotlin BQ6 implementation |
+
+The four web view calculators live in `functions/analytics/dashboard_views.py`.
+The existing web dashboard can also send `{ "view": "saved" }` (with `months`
+or `categoryId` at the top level) and receives the metric data directly. This
+compatibility path uses the same admin check and calculators.
+The web `demographic` view and `bq6` answer different questions because the
+existing Flutter screen includes owners of current products whether or not a
+product was purchased.
 
 ## Calling it
 

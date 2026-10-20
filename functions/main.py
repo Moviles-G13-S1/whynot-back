@@ -48,7 +48,7 @@ def get_recommendation(req: https_fn.CallableRequest):
 
 @https_fn.on_call()
 def save_recommended_product(req: https_fn.CallableRequest):
-    """Save a recommendation and update its administrative metric."""
+    """Save a recommendation and record its successful event."""
     return handle_save_recommended_product(req)
 
 
@@ -58,7 +58,7 @@ def get_nearest_store(req: https_fn.CallableRequest):
     return handle_get_nearest_store(req)
 
 
-@https_fn.on_call()
+@https_fn.on_call(invoker="public")
 def get_admin_analytics(req: https_fn.CallableRequest):
-    """Return one admin dashboard metric; requires the admin claim."""
+    """Return one processed admin metric; requires the admin claim."""
     return handle_get_admin_analytics(req)

@@ -100,6 +100,28 @@ class RegistryTest(unittest.TestCase):
             bq6_demographics.compute_from_firestore,
         )
 
+    def test_dashboard_views_are_registered(self):
+        from analytics import dashboard_views
+
+        for name in ("saved", "recommended", "purchased", "demographic"):
+            with self.subTest(name=name):
+                self.assertIs(
+                    endpoint.METRICS[name],
+                    getattr(dashboard_views, f"compute_{name}"),
+                )
+
+    def test_legacy_dashboard_request_returns_unwrapped_data(self):
+        compute = mock.Mock(return_value={"total": 3})
+        db = object()
+        with mock.patch.dict(endpoint.METRICS, {"recommended": compute}):
+            with mock.patch.object(endpoint.firestore, "client", return_value=db):
+                result = endpoint.get_admin_analytics(
+                    request({"view": "recommended"}, token=ADMIN)
+                )
+
+        self.assertEqual(result, {"total": 3})
+        compute.assert_called_once_with(db, {})
+
 
 if __name__ == "__main__":
     unittest.main()

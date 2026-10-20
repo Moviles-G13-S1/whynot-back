@@ -10,12 +10,16 @@ from datetime import datetime, timezone
 from firebase_admin import firestore
 from firebase_functions import https_fn
 
-from . import bq6_demographics
+from . import bq6_demographics, dashboard_views
 
 
 # metric name -> compute_from_firestore(db, params) returning JSON-safe data.
 METRICS = {
     "bq6": bq6_demographics.compute_from_firestore,
+    "saved": dashboard_views.compute_saved,
+    "recommended": dashboard_views.compute_recommended,
+    "purchased": dashboard_views.compute_purchased,
+    "demographic": dashboard_views.compute_demographic,
 }
 
 
@@ -40,7 +44,7 @@ def require_admin(req: https_fn.CallableRequest):
 
 
 def get_admin_analytics(req: https_fn.CallableRequest):
-    """Compute one admin metric, chosen by `metric` in the request data."""
+    """Compute one admin metric, retaining the dashboard's legacy view request."""
     require_admin(req)
 
     if not isinstance(req.data, dict):
@@ -48,6 +52,19 @@ def get_admin_analytics(req: https_fn.CallableRequest):
             code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
             message="metric is required.",
         )
+
+    # The deployed web dashboard still sends {view, ...filters} and expects
+    # the metric data directly. Keep it working while clients adopt the shared
+    # {metric, params} contract.
+    if "view" in req.data and "metric" not in req.data:
+        view = req.data["view"]
+        if view not in ("saved", "recommended", "purchased", "demographic"):
+            raise https_fn.HttpsError(
+                code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
+                message=f"Unknown view: {view}.",
+            )
+        params = {key: value for key, value in req.data.items() if key != "view"}
+        return METRICS[view](firestore.client(), params)
 
     metric = req.data.get("metric")
     if not isinstance(metric, str) or not metric.strip():

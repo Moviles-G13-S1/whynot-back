@@ -122,8 +122,7 @@ The existing manual product flow remains unchanged. A mobile client creates a
 valid `products/{productId}` document through the normal product repository and
 Firestore Security Rules.
 
-A manual save does not create a recommendation event and does not increment the
-BQ3 metric.
+A manual save does not create a recommendation event and is excluded from BQ3.
 
 `saveMethod` is still not part of the product contract. The distinction needed
 for BQ3 is represented by the backend recommendation-save flow rather than by
@@ -135,3 +134,12 @@ Saving from the Smart Recommendation screen uses the callable Cloud Function:
 
 ```text
 save_recommended_product(recommendationEventId, wishlistId)
+```
+
+The function writes a copy to `products` and marks the existing
+`productEvents/{recommendationEventId}` record with `savedAt` and
+`savedProductId` in one transaction. BQ3 counts those successful events in
+`get_admin_analytics({view: "recommended"})`. Repeated saves are idempotent.
+The count remains historical if a saved product is later deleted. The legacy
+`adminMetrics/recommendedProductSaves` document is not read or updated by the
+new dashboard.
