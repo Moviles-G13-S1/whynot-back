@@ -10,11 +10,12 @@ from datetime import datetime, timezone
 from firebase_admin import firestore
 from firebase_functions import https_fn
 
-from . import bq6_demographics, dashboard_views
+from . import bq4_purchases_by_category, bq6_demographics, dashboard_views
 
 
 # metric name -> compute_from_firestore(db, params) returning JSON-safe data.
 METRICS = {
+    "bq4": bq4_purchases_by_category.compute_from_firestore,
     "bq6": bq6_demographics.compute_from_firestore,
     "saved": dashboard_views.compute_saved,
     "recommended": dashboard_views.compute_recommended,

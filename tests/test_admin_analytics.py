@@ -92,6 +92,14 @@ class AdminAnalyticsTest(unittest.TestCase):
 
 
 class RegistryTest(unittest.TestCase):
+    def test_bq4_is_registered(self):
+        from analytics import bq4_purchases_by_category
+
+        self.assertIs(
+            endpoint.METRICS["bq4"],
+            bq4_purchases_by_category.compute_from_firestore,
+        )
+
     def test_bq6_is_registered(self):
         from analytics import bq6_demographics
 

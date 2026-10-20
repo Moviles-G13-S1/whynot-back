@@ -43,6 +43,7 @@ The metric keys are:
 | `saved` | `{}` | Current `products` and `users` (BQ1, BQ2, BQ5) |
 | `recommended` | `{}` | Successful `productEvents` (BQ3) |
 | `purchased` | `{ "months": 6 }` (6, 12, or 24) | Current purchased `products` (BQ4) |
+| `bq4` | `{ "months": 6 }` (6, 12, or 24) | Current purchased `products`: top category per month, matching the Kotlin BQ4 implementation |
 | `demographic` | `{ "categoryId": "..." }` (optional) | Current product owners, profiles, categories, and cities, matching the Flutter screen |
 | `bq6` | `{}` | Purchased-product buyers, matching the separate Kotlin BQ6 implementation |
 
@@ -73,6 +74,57 @@ FirebaseFunctions.getInstance("us-central1")
     .call(mapOf("metric" to "bq6"))
     .await()
 ```
+
+## BQ4: category with the most purchased products per month
+
+A purchase is a product that currently exists with `purchased == true`. Its
+month is the calendar month of `purchasedAt` in `America/Bogota`. `params.months`
+picks the window (6, 12, or 24 months, counting the current one; default 6).
+Any other value is rejected with `invalid-argument`.
+
+```json
+{
+  "months": [
+    {
+      "year": 2026,
+      "month": 10,
+      "label": "Oct 2026",
+      "totalPurchases": 5,
+      "topCategoryIds": ["beauty", "tech"],
+      "topCategoryNames": ["Beauty", "Technology"],
+      "topCategoryPurchases": 2,
+      "byCategory": [
+        { "categoryId": "beauty", "categoryName": "Beauty", "purchases": 2 },
+        { "categoryId": "tech", "categoryName": "Technology", "purchases": 2 },
+        { "categoryId": "home", "categoryName": "Home", "purchases": 1 }
+      ]
+    }
+  ],
+  "totalPurchases": 5,
+  "undatedPurchases": 1,
+  "overallTopCategoryIds": ["beauty", "tech"],
+  "overallTopCategoryNames": ["Beauty", "Technology"],
+  "monthsWindow": 6
+}
+```
+
+- `months` lists only months in the window that have purchases, newest first.
+- `topCategoryIds` holds every category tied at the highest count, sorted, so
+  a tie is reported as a tie. `topCategoryPurchases` is that highest count.
+- `byCategory` is sorted by `purchases` (descending), then `categoryId`.
+  `categoryName` falls back to the id.
+- `totalPurchases` and `overallTopCategoryIds` cover the whole window, with the
+  same tie rule.
+- `undatedPurchases` counts purchased products without `purchasedAt` (bought
+  before the field existed). They have no month, so they are reported here
+  instead of being dropped.
+
+The logic lives in `compute_purchases_by_category()` in
+`functions/analytics/bq4_purchases_by_category.py`. It uses plain dictionaries
+and is the calculation the Kotlin admin dashboard ran in
+`AdminInsightsController`, moved to the backend. The Firestore read uses the
+same single-field equality query as BQ6 (`purchased == true`), so it needs no
+composite index.
 
 ## BQ6: demographic profile of the average buyer per category
 
