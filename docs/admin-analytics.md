@@ -1,8 +1,10 @@
 # Admin analytics
 
-The admin dashboards get their business-question (BQ) metrics from one
-callable function, `get_admin_analytics`. It reads Firestore with the Admin
-SDK, so clients never need broad read access to compute a metric.
+The callable function `get_admin_analytics` remains available for other
+clients. The local HTML dashboard reads Firestore through the Web SDK, like
+the Flutter admin views, so it does not depend on this callable's HTTP access.
+Both paths require the `admin: true` application claim. BQ3 counts successful
+`productEvents`; it does not read or write `adminMetrics`.
 
 ## Contract
 
@@ -44,10 +46,9 @@ The metric keys are:
 | `demographic` | `{ "categoryId": "..." }` (optional) | Current product owners, profiles, categories, and cities, matching the Flutter screen |
 | `bq6` | `{}` | Purchased-product buyers, matching the separate Kotlin BQ6 implementation |
 
-The four web view calculators live in `functions/analytics/dashboard_views.py`.
-The existing web dashboard can also send `{ "view": "saved" }` (with `months`
-or `categoryId` at the top level) and receives the metric data directly. This
-compatibility path uses the same admin check and calculators.
+The callable's four view calculators live in
+`functions/analytics/dashboard_views.py`. The HTML dashboard performs the
+equivalent calculations in `whynot-analytics-dashboard/src/analytics.js`.
 The web `demographic` view and `bq6` answer different questions because the
 existing Flutter screen includes owners of current products whether or not a
 product was purchased.

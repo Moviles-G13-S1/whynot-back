@@ -67,7 +67,8 @@ Authentication when immediate incident response is required.
 - Regular authenticated users may access only their owned application data.
 - Administrators may read aggregate documents under `adminMetrics`.
 - No client may write `adminMetrics`.
-- No client, including an administrator, may read or write `productEvents` or
-  `processedEvents`.
+- Administrators may read `productEvents` to calculate BQ3 without an
+  aggregate. No client may write those events.
+- No client may read or write `processedEvents`.
 - Admin SDK code bypasses Firestore Security Rules and must be protected by
   IAM and trusted runtime credentials.
