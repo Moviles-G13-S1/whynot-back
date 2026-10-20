@@ -46,6 +46,7 @@ The metric keys are:
 | `bq4` | `{ "months": 6 }` (6, 12, or 24) | Current purchased `products`: top category per month, matching the Kotlin BQ4 implementation |
 | `demographic` | `{ "categoryId": "..." }` (optional) | Current product owners, profiles, categories, and cities, matching the Flutter screen |
 | `bq6` | `{}` | Purchased-product buyers, matching the separate Kotlin BQ6 implementation |
+| `save_attempts` | `{}` | `productSaveEvents`: product-save successes and failures per platform (BQ Type 2) |
 
 The callable's four view calculators live in
 `functions/analytics/dashboard_views.py`. The HTML dashboard performs the
@@ -125,6 +126,37 @@ and is the calculation the Kotlin admin dashboard ran in
 `AdminInsightsController`, moved to the backend. The Firestore read uses the
 same single-field equality query as BQ6 (`purchased == true`), so it needs no
 composite index.
+
+## Product-save attempts (BQ Type 2)
+
+Each mobile client writes one `productSaveEvents` document per attempt to save
+a product (see [data-model.md](data-model.md)). `save_attempts` summarizes them:
+
+```json
+{
+  "totalAttempts": 40,
+  "successes": 36,
+  "failures": 4,
+  "successRate": 90.0,
+  "platforms": [
+    { "platform": "android", "successes": 20, "failures": 3 },
+    { "platform": "ios", "successes": 16, "failures": 1 }
+  ],
+  "failureReasons": [
+    { "reason": "invalid_price", "count": 3 },
+    { "reason": "backend_error", "count": 1 }
+  ]
+}
+```
+
+- `successRate` is a percentage of all attempts, not rounded, and `null` when
+  there are none.
+- `platforms` always lists `android` and `ios`.
+- `failureReasons` is sorted by `count` (descending), then `reason`. A failure
+  without a reason is counted as `unknown`.
+
+The logic lives in `compute_save_attempts()` in
+`functions/analytics/product_save_attempts.py`.
 
 ## BQ6: demographic profile of the average buyer per category
 

@@ -100,6 +100,14 @@ class RegistryTest(unittest.TestCase):
             bq4_purchases_by_category.compute_from_firestore,
         )
 
+    def test_save_attempts_is_registered(self):
+        from analytics import product_save_attempts
+
+        self.assertIs(
+            endpoint.METRICS["save_attempts"],
+            product_save_attempts.compute_from_firestore,
+        )
+
     def test_bq6_is_registered(self):
         from analytics import bq6_demographics
 
