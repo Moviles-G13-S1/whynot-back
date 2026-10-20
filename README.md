@@ -28,6 +28,7 @@ functions/main.py                         Firebase callable entrypoints
 functions/recommendations.py              Recommendation selection logic
 functions/recommended_product_saves.py    Recommended-save and BQ3 metric logic
 functions/nearest_store.py                Nearest relevant store logic
+functions/analytics/                      Admin-only analytics callable and BQ6
 tests/firestore-rules/                    Emulator-backed rules tests
 scripts/seed-categories/                  Idempotent canonical category seed
 scripts/seed-cities/                      Idempotent canonical city seed
@@ -46,6 +47,8 @@ See [docs/data-model.md](docs/data-model.md) before changing any field,
 collection, or allowed operation.
 See [docs/authentication.md](docs/authentication.md) for administrator
 provisioning, revocation, token refresh, and authorization boundaries.
+See [docs/admin-analytics.md](docs/admin-analytics.md) for the
+`get_admin_analytics` callable and how to add a business question.
 
 ## Prerequisites
 
