@@ -11,6 +11,7 @@ from google.auth.credentials import AnonymousCredentials
 from firebase_admin import initialize_app
 from firebase_functions import https_fn
 
+from analytics import get_admin_analytics as handle_get_admin_analytics
 from nearest_store import get_nearest_store as handle_get_nearest_store
 from recommendations import get_recommendation as handle_get_recommendation
 from recommended_product_saves import (
@@ -55,3 +56,9 @@ def save_recommended_product(req: https_fn.CallableRequest):
 def get_nearest_store(req: https_fn.CallableRequest):
     """Return the nearest store relevant to the current user."""
     return handle_get_nearest_store(req)
+
+
+@https_fn.on_call()
+def get_admin_analytics(req: https_fn.CallableRequest):
+    """Return one admin dashboard metric; requires the admin claim."""
+    return handle_get_admin_analytics(req)
