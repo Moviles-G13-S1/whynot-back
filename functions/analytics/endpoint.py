@@ -10,9 +10,13 @@ from datetime import datetime, timezone
 from firebase_admin import firestore
 from firebase_functions import https_fn
 
+from . import bq6_demographics
+
 
 # metric name -> compute_from_firestore(db, params) returning JSON-safe data.
-METRICS = {}
+METRICS = {
+    "bq6": bq6_demographics.compute_from_firestore,
+}
 
 
 def require_admin(req: https_fn.CallableRequest):
