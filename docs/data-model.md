@@ -128,6 +128,27 @@ A manual save does not create a recommendation event and is excluded from BQ3.
 for BQ3 is represented by the backend recommendation-save flow rather than by
 adding a required field to every product.
 
+### Product-save attempts (`productSaveEvents/{eventId}`)
+
+Every attempt to save a product from a mobile client also records one event,
+for BQ Type 2. It is written by the client right after the attempt and never
+blocks or changes the product save itself.
+
+| Field | Type | Validation |
+|---|---|---|
+| `userId` | string | Authenticated UID |
+| `platform` | string | `android` or `ios` |
+| `outcome` | string | `success` or `failure` |
+| `reason` | string or null | `null` on success; 1–64 characters on failure |
+| `createdAt` | timestamp | Server timestamp on create |
+
+Users may only create their own events; nobody may update or delete them, and
+only administrators may read them. The reason codes in use are
+`missing_name`, `missing_brand`, `invalid_price`, `negative_price`,
+`missing_wishlist` and `backend_error`. `get_admin_analytics({metric:
+"save_attempts"})` summarizes the collection (see
+[admin-analytics.md](admin-analytics.md)).
+
 ### Product saved from a recommendation
 
 Saving from the Smart Recommendation screen uses the callable Cloud Function:

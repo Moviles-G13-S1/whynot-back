@@ -80,6 +80,17 @@ function validProduct(overrides = {}) {
   };
 }
 
+function validSaveEvent(overrides = {}) {
+  return {
+    userId: aliceUid,
+    platform: 'android',
+    outcome: 'success',
+    reason: null,
+    createdAt: serverTimestamp(),
+    ...overrides,
+  };
+}
+
 async function seedFixtures({ includeUsers = false, includeProducts = false } = {}) {
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     const firestore = context.firestore();
@@ -561,5 +572,61 @@ describe('products', () => {
 
     await assertFails(deleteDoc(doc(bob, 'products/alice-product')));
     await assertSucceeds(deleteDoc(doc(alice, 'products/alice-product')));
+  });
+});
+
+describe('productSaveEvents', () => {
+  it('allows a user to record their own success and failure attempts', async () => {
+    const alice = firestoreFor(aliceUid, aliceEmail);
+
+    await assertSucceeds(setDoc(doc(alice, 'productSaveEvents/ok'), validSaveEvent()));
+    await assertSucceeds(setDoc(doc(alice, 'productSaveEvents/failed'), validSaveEvent({
+      outcome: 'failure',
+      reason: 'invalid_price',
+    })));
+    await assertSucceeds(setDoc(doc(alice, 'productSaveEvents/ios'), validSaveEvent({
+      platform: 'ios',
+    })));
+  });
+
+  it('rejects foreign, malformed, and unauthenticated events', async () => {
+    const alice = firestoreFor(aliceUid, aliceEmail);
+    const visitor = unauthenticatedFirestore();
+
+    await assertFails(setDoc(doc(visitor, 'productSaveEvents/e'), validSaveEvent()));
+
+    for (const overrides of [
+      { userId: bobUid },
+      { platform: 'web' },
+      { outcome: 'maybe' },
+      { outcome: 'success', reason: 'invalid_price' },
+      { outcome: 'failure', reason: null },
+      { outcome: 'failure', reason: '' },
+      { outcome: 'failure', reason: 'x'.repeat(65) },
+      { createdAt: Timestamp.fromMillis(1_700_000_000_000) },
+      { extra: true },
+    ]) {
+      await assertFails(setDoc(doc(alice, 'productSaveEvents/e'), validSaveEvent(overrides)));
+    }
+
+    const missingReason = validSaveEvent();
+    delete missingReason.reason;
+    await assertFails(setDoc(doc(alice, 'productSaveEvents/e'), missingReason));
+  });
+
+  it('lets only administrators read events and nobody edit them', async () => {
+    const alice = firestoreFor(aliceUid, aliceEmail);
+    const admin = firestoreFor(bobUid, bobEmail, { admin: true });
+
+    await assertSucceeds(setDoc(doc(alice, 'productSaveEvents/mine'), validSaveEvent()));
+
+    await assertFails(getDoc(doc(alice, 'productSaveEvents/mine')));
+    await assertFails(getDocs(collection(alice, 'productSaveEvents')));
+    await assertSucceeds(getDoc(doc(admin, 'productSaveEvents/mine')));
+    await assertSucceeds(getDocs(collection(admin, 'productSaveEvents')));
+
+    await assertFails(updateDoc(doc(alice, 'productSaveEvents/mine'), { outcome: 'failure' }));
+    await assertFails(deleteDoc(doc(alice, 'productSaveEvents/mine')));
+    await assertFails(deleteDoc(doc(admin, 'productSaveEvents/mine')));
   });
 });

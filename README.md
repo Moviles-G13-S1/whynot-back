@@ -29,7 +29,7 @@ functions/recommendations.py              Recommendation selection logic
 functions/recommended_product_saves.py    Recommended-save event tracking
 functions/analytics/dashboard_views.py    Flutter-equivalent calculations for four web views
 functions/nearest_store.py                Nearest relevant store logic
-functions/analytics/                      Shared admin-only endpoint and BQ6
+functions/analytics/                      Shared admin-only endpoint, BQ4, BQ6, save attempts
 tests/firestore-rules/                    Emulator-backed rules tests
 scripts/seed-categories/                  Idempotent canonical category seed
 scripts/seed-cities/                      Idempotent canonical city seed

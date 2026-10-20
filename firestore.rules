@@ -156,6 +156,32 @@ service cloud.firestore {
         && validProductWishlist(data);
     }
 
+    // One product-save attempt from a mobile client (BQ Type 2). Success has
+    // no reason; a failure carries a short machine-readable reason code.
+    function validProductSaveEvent(data) {
+      return data.keys().hasAll([
+          'userId',
+          'platform',
+          'outcome',
+          'reason',
+          'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'userId',
+          'platform',
+          'outcome',
+          'reason',
+          'createdAt'
+        ])
+        && data.userId == currentUid()
+        && data.platform in ['android', 'ios']
+        && (
+          (data.outcome == 'success' && data.reason == null)
+          || (data.outcome == 'failure' && validNonEmptyString(data.reason, 64))
+        )
+        && data.createdAt == request.time;
+    }
+
     match /users/{uid} {
       allow get: if signedIn() && currentUid() == uid;
       allow list: if isAdmin();
@@ -262,6 +288,12 @@ service cloud.firestore {
         );
 
       allow delete: if signedIn() && resource.data.ownerId == currentUid();
+    }
+
+    match /productSaveEvents/{eventId} {
+      allow create: if signedIn() && validProductSaveEvent(request.resource.data);
+      allow read: if isAdmin();
+      allow update, delete: if false;
     }
 
     match /adminMetrics/{document=**} {
