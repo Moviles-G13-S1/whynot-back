@@ -248,7 +248,18 @@ describe('default and category access', () => {
     );
   });
 
-  it('denies metric writes and event access even to administrators', async () => {
+  it('allows only administrators to read recommendation events', async () => {
+    const regularUser = firestoreFor(aliceUid, aliceEmail);
+    const admin = firestoreFor(aliceUid, aliceEmail, { admin: true });
+
+    await assertFails(getDoc(doc(regularUser, 'productEvents/event-1')));
+    await assertFails(getDocs(collection(regularUser, 'productEvents')));
+    await assertSucceeds(getDoc(doc(admin, 'productEvents/event-1')));
+    await assertSucceeds(getDocs(collection(admin, 'productEvents')));
+    await assertFails(setDoc(doc(admin, 'productEvents/new'), { value: true }));
+  });
+
+  it('denies metric writes and other backend records even to administrators', async () => {
     const admin = firestoreFor(aliceUid, aliceEmail, { admin: true });
 
     await assertFails(setDoc(doc(admin, 'adminMetrics/new'), { value: true }));
@@ -258,7 +269,6 @@ describe('default and category access', () => {
     await assertFails(deleteDoc(doc(admin, 'adminMetrics/overview')));
 
     for (const path of [
-      'productEvents/event-1',
       'processedEvents/event-1',
       'unknown/document-1',
     ]) {

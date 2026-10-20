@@ -270,7 +270,8 @@ service cloud.firestore {
     }
 
     match /productEvents/{document=**} {
-      allow read, write: if false;
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     match /processedEvents/{document=**} {

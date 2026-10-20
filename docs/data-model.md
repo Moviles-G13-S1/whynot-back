@@ -14,8 +14,8 @@ same contract deliberately.
 - Category IDs are stable identifiers rather than display names.
 - External image/product links remain strings; Firebase Storage is not used.
 - Passwords and roles are never stored in user documents.
-- Backend-only analytics events are never directly readable or writable by
-  mobile clients.
+- Recommendation events can be read by accounts with the `admin: true` claim
+  for the web dashboard's BQ3 calculation; no client can write them.
 
 ## `users/{uid}`
 
