@@ -27,8 +27,9 @@ firebase.json                             Emulator and deployment configuration
 functions/main.py                         Firebase callable entrypoints
 functions/recommendations.py              Recommendation selection logic
 functions/recommended_product_saves.py    Recommended-save event tracking
-functions/analytics.py                    Admin-only calculations for all four views
+functions/analytics/dashboard_views.py    Flutter-equivalent calculations for four web views
 functions/nearest_store.py                Nearest relevant store logic
+functions/analytics/                      Shared admin-only endpoint and BQ6
 tests/firestore-rules/                    Emulator-backed rules tests
 scripts/seed-categories/                  Idempotent canonical category seed
 scripts/seed-cities/                      Idempotent canonical city seed
@@ -49,6 +50,8 @@ See [docs/data-model.md](docs/data-model.md) before changing any field,
 collection, or allowed operation.
 See [docs/authentication.md](docs/authentication.md) for administrator
 provisioning, revocation, token refresh, and authorization boundaries.
+See [docs/admin-analytics.md](docs/admin-analytics.md) for the
+`get_admin_analytics` callable and how to add a business question.
 
 ## Prerequisites
 

@@ -375,7 +375,7 @@ async function testFunctions() {
 
   const analytics = httpsCallable(functions, 'get_admin_analytics');
   try {
-    await analytics({ view: 'recommended' });
+    await analytics({ metric: 'recommended' });
     throw new Error('Regular user was allowed to read analytics.');
   } catch (error) {
     if (error.code !== 'functions/permission-denied') throw error;
@@ -390,21 +390,21 @@ async function testFunctions() {
   await signInWithEmailAndPassword(adminClientAuth, adminEmail, password);
   const adminFunctions = getFunctions(adminApp, 'us-central1');
   connectFunctionsEmulator(adminFunctions, '127.0.0.1', 5001);
-  const bq3 = await httpsCallable(adminFunctions, 'get_admin_analytics')({ view: 'recommended' });
-  if (bq3.data.total !== 1) {
-    throw new Error(`Expected BQ3 total 1, got ${bq3.data.total}.`);
+  const bq3 = await httpsCallable(adminFunctions, 'get_admin_analytics')({ metric: 'recommended' });
+  if (bq3.data.data.total !== 1) {
+    throw new Error(`Expected BQ3 total 1, got ${bq3.data.data.total}.`);
   }
   const adminAnalytics = httpsCallable(adminFunctions, 'get_admin_analytics');
-  const saved = await adminAnalytics({ view: 'saved' });
-  if (saved.data.totalProducts !== 3 || saved.data.activeUsers !== 2) {
+  const saved = await adminAnalytics({ metric: 'saved' });
+  if (saved.data.data.totalProducts !== 3 || saved.data.data.activeUsers !== 2) {
     throw new Error('Saved-products summary did not match seeded products.');
   }
-  const purchased = await adminAnalytics({ view: 'purchased', months: 6 });
-  if (purchased.data.currentMonthCount !== 1) {
+  const purchased = await adminAnalytics({ metric: 'purchased', params: { months: 6 } });
+  if (purchased.data.data.currentMonthCount !== 1) {
     throw new Error('Purchase summary did not match seeded purchase.');
   }
-  const demographic = await adminAnalytics({ view: 'demographic', categoryId: 'fashion' });
-  if (demographic.data.userCount !== 2 || demographic.data.categories[0].name !== 'Fashion') {
+  const demographic = await adminAnalytics({ metric: 'demographic', params: { categoryId: 'fashion' } });
+  if (demographic.data.data.userCount !== 2 || demographic.data.data.categories[0].name !== 'Fashion') {
     throw new Error('Demographic summary did not match seeded users.');
   }
   console.log('\nAll four admin analytics views returned processed results.');

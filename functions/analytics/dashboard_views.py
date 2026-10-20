@@ -102,35 +102,48 @@ def demographic_summary(category_id, products, profiles, cities):
     }
 
 
-def get_admin_analytics(req):
-    from firebase_admin import firestore
+
+def compute_saved(db, params):
+    return saved_summary(_read_collection(db, "products"), _read_collection(db, "users"))
+
+
+def compute_recommended(db, params):
+    return recommended_summary(_read_collection(db, "productEvents"))
+
+
+def compute_purchased(db, params):
     from firebase_functions import https_fn
 
-    if req.auth is None:
-        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.UNAUTHENTICATED, "Sign in is required.")
-    if req.auth.token.get("admin") is not True:
-        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.PERMISSION_DENIED, "Admin access is required.")
-    data = req.data if isinstance(req.data, dict) else {}
-    view = data.get("view")
-    if view not in ("saved", "recommended", "purchased", "demographic"):
-        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INVALID_ARGUMENT, "Unknown analytics view.")
-    db = firestore.client()
-    if view == "recommended":
-        return recommended_summary(_read_collection(db, "productEvents"))
-    if view == "purchased":
-        months = data.get("months", 6)
-        if type(months) is not int or months not in (6, 12, 24):
-            raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INVALID_ARGUMENT, "Months must be 6, 12, or 24.")
-        return purchased_summary(_read_collection(db, "products"), datetime.now(BOGOTA), months)
-    if view == "saved":
-        return saved_summary(_read_collection(db, "products"), _read_collection(db, "users"))
+    months = params.get("months", 6)
+    if type(months) is not int or months not in (6, 12, 24):
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
+            message="Months must be 6, 12, or 24.",
+        )
+    return purchased_summary(_read_collection(db, "products"), datetime.now(BOGOTA), months)
+
+
+def compute_demographic(db, params):
+    from firebase_functions import https_fn
+
     categories = _read_collection(db, "categories")
     if not categories:
         return {"categories": [], "categoryId": None}
-    category_id = data.get("categoryId") or (categories[0][0] if categories else None)
+    category_id = params.get("categoryId") or categories[0][0]
     if not isinstance(category_id, str) or category_id not in {uid for uid, _ in categories}:
-        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INVALID_ARGUMENT, "Unknown category.")
-    result = demographic_summary(category_id, _read_collection(db, "products"), _read_collection(db, "users"), _read_collection(db, "cities"))
-    result["categories"] = [{"id": uid, "name": item.get("name", uid)} for uid, item in categories]
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
+            message="Unknown category.",
+        )
+    result = demographic_summary(
+        category_id,
+        _read_collection(db, "products"),
+        _read_collection(db, "users"),
+        _read_collection(db, "cities"),
+    )
+    result["categories"] = [
+        {"id": uid, "name": item.get("name", uid)}
+        for uid, item in categories
+    ]
     result["categoryId"] = category_id
     return result

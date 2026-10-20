@@ -11,12 +11,12 @@ from google.auth.credentials import AnonymousCredentials
 from firebase_admin import initialize_app
 from firebase_functions import https_fn
 
+from analytics import get_admin_analytics as handle_get_admin_analytics
 from nearest_store import get_nearest_store as handle_get_nearest_store
 from recommendations import get_recommendation as handle_get_recommendation
 from recommended_product_saves import (
     save_recommended_product as handle_save_recommended_product,
 )
-from analytics import get_admin_analytics as handle_get_admin_analytics
 
 
 IS_EMULATOR = any([
@@ -60,5 +60,5 @@ def get_nearest_store(req: https_fn.CallableRequest):
 
 @https_fn.on_call(invoker="public")
 def get_admin_analytics(req: https_fn.CallableRequest):
-    """Return processed, read-only analytics to an admin account."""
+    """Return one processed admin metric; requires the admin claim."""
     return handle_get_admin_analytics(req)

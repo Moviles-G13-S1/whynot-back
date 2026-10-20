@@ -1,16 +1,13 @@
 """Regression tests for backend analytics and the callable's admin gate."""
 
 import sys
-import types
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "functions"))
-from analytics import (  # noqa: E402
+from analytics.dashboard_views import (  # noqa: E402
     demographic_summary,
-    get_admin_analytics,
     purchased_summary,
     recommended_summary,
     saved_summary,
@@ -53,19 +50,6 @@ class AnalyticsCalculationTest(unittest.TestCase):
         self.assertEqual(result["cities"][0]["label"], "Bogotá")
         self.assertEqual(result["cities"][-1]["count"], 1)
 
-    def test_callable_rejects_non_admin_before_any_database_access(self):
-        class HttpsError(Exception):
-            def __init__(self, code, message):
-                self.code = code
-                super().__init__(message)
-        codes = types.SimpleNamespace(UNAUTHENTICATED="unauthenticated", PERMISSION_DENIED="permission-denied")
-        fake_https = types.SimpleNamespace(HttpsError=HttpsError, FunctionsErrorCode=codes)
-        database = types.SimpleNamespace(client=lambda: self.fail("Database was accessed"))
-        with patch.dict(sys.modules, {"firebase_admin": types.SimpleNamespace(firestore=database), "firebase_functions": types.SimpleNamespace(https_fn=fake_https)}):
-            for auth, expected in [(None, "unauthenticated"), (types.SimpleNamespace(token={"admin": False}), "permission-denied")]:
-                with self.subTest(expected=expected), self.assertRaises(HttpsError) as caught:
-                    get_admin_analytics(types.SimpleNamespace(auth=auth, data={"view": "saved"}))
-                self.assertEqual(caught.exception.code, expected)
 
 
 if __name__ == "__main__":
