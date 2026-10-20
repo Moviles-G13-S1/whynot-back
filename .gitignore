@@ -9,3 +9,6 @@ ui-debug.log*
 service-account*.json
 *-service-account.json
 emulator-data/
+
+__pycache__/
+*.pyc

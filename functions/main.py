@@ -16,6 +16,7 @@ from recommendations import get_recommendation as handle_get_recommendation
 from recommended_product_saves import (
     save_recommended_product as handle_save_recommended_product,
 )
+from analytics import get_admin_analytics as handle_get_admin_analytics
 
 
 IS_EMULATOR = any([
@@ -55,3 +56,9 @@ def save_recommended_product(req: https_fn.CallableRequest):
 def get_nearest_store(req: https_fn.CallableRequest):
     """Return the nearest store relevant to the current user."""
     return handle_get_nearest_store(req)
+
+
+@https_fn.on_call()
+def get_admin_analytics(req: https_fn.CallableRequest):
+    """Return processed, read-only analytics to an admin account."""
+    return handle_get_admin_analytics(req)

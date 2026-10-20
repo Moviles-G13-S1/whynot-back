@@ -26,7 +26,8 @@ firestore.indexes.json                    Versioned index manifest
 firebase.json                             Emulator and deployment configuration
 functions/main.py                         Firebase callable entrypoints
 functions/recommendations.py              Recommendation selection logic
-functions/recommended_product_saves.py    Recommended-save and BQ3 metric logic
+functions/recommended_product_saves.py    Recommended-save event tracking
+functions/analytics.py                    Admin-only calculations for all four views
 functions/nearest_store.py                Nearest relevant store logic
 tests/firestore-rules/                    Emulator-backed rules tests
 scripts/seed-categories/                  Idempotent canonical category seed
@@ -35,9 +36,11 @@ scripts/assign-admin-role/                Privileged custom-claim management
 ```
 
 The current user-facing collections are `users`, `categories`, `cities`,
-`wishlists`, and `products`. Administrators with the `admin: true` custom claim may read
-aggregate documents under `adminMetrics`; no client may write those documents.
-`productEvents` and `processedEvents` remain backend-only.
+`wishlists`, and `products`. `get_admin_analytics` checks the `admin: true`
+custom claim before reading any data, calculates each dashboard response on
+the server, and exposes no raw profile or product records. `productEvents`
+and `processedEvents` remain backend-only. The old `adminMetrics` rule and
+document are retained for compatibility but the dashboard does not use them.
 
 Phase 1 was deployed to the default Firestore database in `whynot-f4ae6` on
 2026-09-21 after all 17 Security Rules tests passed.

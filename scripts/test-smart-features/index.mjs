@@ -24,9 +24,11 @@ const projectId = 'demo-whynot';
 
 const currentUid = 'current-user';
 const similarUid = 'similar-user';
+const adminUid = 'analytics-admin';
 
 const currentEmail = 'current@example.com';
 const similarEmail = 'similar@example.com';
+const adminEmail = 'analytics-admin@example.com';
 
 const password = 'Test123456!';
 
@@ -65,6 +67,9 @@ async function seedData() {
     similarUid,
     similarEmail,
   );
+
+  await ensureAuthUser(auth, adminUid, adminEmail);
+  await auth.setCustomUserClaims(adminUid, { admin: true });
 
   await adminFirestore
     .collection('categories')
@@ -187,12 +192,6 @@ async function seedData() {
       imageUrl: '',
     });
 
-  await adminFirestore
-    .collection('adminMetrics')
-    .doc('recommendedProductSaves')
-    .delete()
-    .catch(() => {});
-
   console.log('Local test data seeded.');
 }
 
@@ -245,21 +244,6 @@ async function testRecommendationSave(
     );
   }
 
-  const metricAfterFirstSave = await adminFirestore
-    .collection('adminMetrics')
-    .doc('recommendedProductSaves')
-    .get();
-
-  if (!metricAfterFirstSave.exists) {
-    throw new Error('BQ3 metric document was not created.');
-  }
-
-  if (metricAfterFirstSave.data().total !== 1) {
-    throw new Error(
-      `Expected BQ3 total 1, got ${metricAfterFirstSave.data().total}.`,
-    );
-  }
-
   const secondSaveResult = await saveRecommendedProduct({
     recommendationEventId: eventId,
     wishlistId: 'current-fashion',
@@ -273,17 +257,6 @@ async function testRecommendationSave(
   if (!secondSaveResult.data.alreadySaved) {
     throw new Error(
       'Repeated save should be idempotent and report alreadySaved.',
-    );
-  }
-
-  const metricAfterSecondSave = await adminFirestore
-    .collection('adminMetrics')
-    .doc('recommendedProductSaves')
-    .get();
-
-  if (metricAfterSecondSave.data().total !== 1) {
-    throw new Error(
-      'Repeated save incorrectly incremented the BQ3 metric.',
     );
   }
 
@@ -327,10 +300,13 @@ async function testRecommendationSave(
     );
   }
 
-  console.log(
-    '\nBQ3 metric:',
-    metricAfterSecondSave.data(),
-  );
+  const events = await adminFirestore.collection('productEvents').get();
+  const saved = events.docs.filter(doc =>
+    doc.data().eventType === 'recommendation_shown' &&
+    doc.data().savedAt && doc.data().savedProductId);
+  if (saved.length !== 1) {
+    throw new Error(`Expected one successful BQ3 event, got ${saved.length}.`);
+  }
 }
 
 
@@ -396,6 +372,42 @@ async function testFunctions() {
     recommendation,
     functions,
   );
+
+  const analytics = httpsCallable(functions, 'get_admin_analytics');
+  try {
+    await analytics({ view: 'recommended' });
+    throw new Error('Regular user was allowed to read analytics.');
+  } catch (error) {
+    if (error.code !== 'functions/permission-denied') throw error;
+  }
+
+  const adminApp = initializeClientApp(
+    { apiKey: 'demo-api-key', projectId, appId: 'admin-test-app' },
+    'analytics-admin-test',
+  );
+  const adminClientAuth = getAuth(adminApp);
+  connectAuthEmulator(adminClientAuth, 'http://127.0.0.1:9099', { disableWarnings: true });
+  await signInWithEmailAndPassword(adminClientAuth, adminEmail, password);
+  const adminFunctions = getFunctions(adminApp, 'us-central1');
+  connectFunctionsEmulator(adminFunctions, '127.0.0.1', 5001);
+  const bq3 = await httpsCallable(adminFunctions, 'get_admin_analytics')({ view: 'recommended' });
+  if (bq3.data.total !== 1) {
+    throw new Error(`Expected BQ3 total 1, got ${bq3.data.total}.`);
+  }
+  const adminAnalytics = httpsCallable(adminFunctions, 'get_admin_analytics');
+  const saved = await adminAnalytics({ view: 'saved' });
+  if (saved.data.totalProducts !== 3 || saved.data.activeUsers !== 2) {
+    throw new Error('Saved-products summary did not match seeded products.');
+  }
+  const purchased = await adminAnalytics({ view: 'purchased', months: 6 });
+  if (purchased.data.currentMonthCount !== 1) {
+    throw new Error('Purchase summary did not match seeded purchase.');
+  }
+  const demographic = await adminAnalytics({ view: 'demographic', categoryId: 'fashion' });
+  if (demographic.data.userCount !== 2 || demographic.data.categories[0].name !== 'Fashion') {
+    throw new Error('Demographic summary did not match seeded users.');
+  }
+  console.log('\nAll four admin analytics views returned processed results.');
 
   const getNearestStore = httpsCallable(
     functions,

@@ -243,7 +243,7 @@ async function main() {
 
 
   console.log(
-    'adminMetrics/recommendedProductSaves'
+    'productEvents/' + recommendation.recommendationEventId
   );
 }
 
