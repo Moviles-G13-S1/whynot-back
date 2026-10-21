@@ -40,18 +40,63 @@ def saved_summary(products, profiles):
     }
 
 
-def recommended_summary(events):
-    """BQ3 (Santiago Casasbuenas): count successful recommendation saves.
+def recommended_summary(events, now=None):
+    """BQ3 (Santiago Casasbuenas): summarize recommendation-save events.
 
-    Events remain counted even if their saved product is later deleted.
+    Count successful saves even if their product was later deleted. All
+    conversion and chart calculations stay in the backend.
     """
-    return {"total": sum(
-        data.get("eventType") == "recommendation_shown"
-        and data.get("savedAt") is not None
-        and isinstance(data.get("savedProductId"), str)
-        and bool(data["savedProductId"])
-        for _, data in events
-    )}
+    now = now or datetime.now(BOGOTA)
+    months = []
+    for offset in range(5, -1, -1):
+        absolute_month = now.year * 12 + now.month - 1 - offset
+        months.append(f"{absolute_month // 12:04d}-{absolute_month % 12 + 1:02d}")
+    month_counts = Counter()
+    shown = 0
+    saved = 0
+    undated = 0
+    savers = set()
+
+    for _, data in events:
+        if data.get("eventType") != "recommendation_shown":
+            continue
+        shown += 1
+        if not (
+            data.get("savedAt") is not None
+            and isinstance(data.get("savedProductId"), str)
+            and bool(data["savedProductId"])
+        ):
+            continue
+        saved += 1
+        user_id = data.get("userId")
+        if isinstance(user_id, str) and user_id:
+            savers.add(user_id)
+        saved_at = data["savedAt"]
+        if not isinstance(saved_at, datetime):
+            undated += 1
+            continue
+        local_date = saved_at.astimezone(BOGOTA) if saved_at.tzinfo else saved_at
+        month = f"{local_date.year:04d}-{local_date.month:02d}"
+        if month in months:
+            month_counts[month] += 1
+
+    peak = max((month_counts[month] for month in months), default=0)
+    return {
+        "total": saved,
+        "recommendationsShown": shown,
+        "saveRatePercent": round(saved * 100 / shown, 1) if shown else 0,
+        "distinctSavers": len(savers),
+        "undatedSaves": undated,
+        "monthlySaves": [
+            {
+                "month": month,
+                "label": datetime.strptime(month, "%Y-%m").strftime("%b %Y"),
+                "count": month_counts[month],
+                "barPercent": round(month_counts[month] * 100 / peak, 1) if peak else 0,
+            }
+            for month in months
+        ],
+    }
 
 
 def purchased_summary(products, now, window_months):

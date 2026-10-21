@@ -47,7 +47,7 @@ The metric keys are:
 | `metric` | `params` | Source |
 |---|---|---|
 | `saved` | `{}` | Current `products` and `users` (BQ1, BQ2, BQ5) |
-| `recommended` | `{}` | Successful `productEvents` (BQ3) |
+| `recommended` | `{}` | Recommendation shown and successful-save `productEvents` (BQ3) |
 | `purchased` | `{ "months": 6 }` (6, 12, or 24) | Current purchased `products` (BQ4) |
 | `bq4` | `{ "months": 6 }` (6, 12, or 24) | Current purchased `products`: top category per month, matching the Kotlin BQ4 implementation |
 | `demographic` | `{ "categoryId": "..." }` (optional) | Current product owners, profiles, categories, and cities, matching the Flutter screen |
@@ -57,6 +57,12 @@ The metric keys are:
 The callable's four view calculators live in
 `functions/analytics/dashboard_views.py`. The HTML dashboard renders the
 processed `data` field returned by the callable.
+The `recommended` result includes the all-time successful-save `total`,
+`recommendationsShown`, backend-calculated `saveRatePercent`,
+`distinctSavers`, `undatedSaves`, and six `monthlySaves` entries. Each month
+entry contains its Bogota-local month, display label, save count, and
+backend-calculated `barPercent`. Saved events outside the six-month window
+remain in the all-time total.
 The web `demographic` view and `bq6` answer different questions because the
 existing Flutter screen includes owners of current products whether or not a
 product was purchased.
