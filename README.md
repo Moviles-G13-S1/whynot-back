@@ -37,12 +37,12 @@ scripts/assign-admin-role/                Privileged custom-claim management
 ```
 
 The current user-facing collections are `users`, `categories`, `cities`,
-`wishlists`, and `products`. The HTML dashboard uses the same `admin: true`
-application claim as Flutter and reads these collections through Firestore
-Security Rules. BQ3 reads `productEvents` for successful recommendation saves;
-only administrators can read these events, and no client can write them.
+`wishlists`, and `products`. The HTML dashboard calls `get_admin_analytics`,
+which checks the `admin: true` application claim and calculates metrics from
+Firestore with the Admin SDK. BQ3 counts successful recommendation saves in
+`productEvents`; clients cannot write these events.
 `processedEvents` remains backend-only. The old `adminMetrics` document is
-retained for the Flutter screen but the HTML dashboard does not use it.
+retained for older mobile clients but the HTML dashboard does not use it.
 
 Phase 1 was deployed to the default Firestore database in `whynot-f4ae6` on
 2026-09-21 after all 17 Security Rules tests passed.
