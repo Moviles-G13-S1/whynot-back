@@ -82,6 +82,8 @@ npm run reset:analytics-demo -- \
   --firestore-backup gs://PRIVATE_BUCKET/EXACT_COMPLETED_EXPORT_PREFIX \
   --auth-backup /ABSOLUTE/PRIVATE/PATH/whynot-auth-before-demo.json
 
+npm run seed:categories -- --project whynot-f4ae6
+
 npm run seed:analytics-demo -- \
   --project whynot-f4ae6 --as-of 2026-10-21 \
   --apply --confirm-project whynot-f4ae6 \

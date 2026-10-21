@@ -60,6 +60,7 @@ export function buildDemoDataset(asOf = new Date()) {
       }
       const number = products.length + 1;
       const purchased = number % 3 === 0;
+      const purchasedAt = purchased ? inMonth((number / 3) % 6, 15) : null;
       const product = {
         id: `${DEMO_PREFIX}product-${String(number).padStart(3, '0')}`,
         data: {
@@ -72,9 +73,9 @@ export function buildDemoDataset(asOf = new Date()) {
           imageUrl: '',
           productUrl: '',
           purchased,
-          purchasedAt: purchased ? inMonth(number % 6, 15) : null,
+          purchasedAt,
           createdAt: baseDate,
-          updatedAt: purchased ? inMonth(number % 6, 15) : baseDate,
+          updatedAt: purchasedAt ?? baseDate,
         },
       };
       products.push(product);

@@ -32,6 +32,8 @@ test('demo records answer BQ1–BQ6 with consistent references', () => {
     assert.equal(wishlists.get(product.wishlistId)?.categoryId, product.categoryId);
     assert.equal(product.purchased, product.purchasedAt instanceof Date);
   }
+  assert.equal(new Set(dataset.products.filter(product => product.data.purchased).map(product =>
+    product.data.purchasedAt.toISOString().slice(0, 7))).size, 6);
   for (const event of dataset.productEvents) {
     assert.ok(users.has(event.data.userId));
     assert.ok(products.has(event.data.sourceProductId));
