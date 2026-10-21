@@ -4,6 +4,7 @@ import sys
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "functions"))
 from analytics.dashboard_views import (  # noqa: E402
@@ -25,12 +26,39 @@ class AnalyticsCalculationTest(unittest.TestCase):
 
     def test_bq3_uses_successful_events_even_if_product_was_deleted(self):
         events = [
-            ("saved", {"eventType": "recommendation_shown", "savedAt": datetime.now(timezone.utc), "savedProductId": "deleted-product"}),
+            ("saved", {"eventType": "recommendation_shown", "userId": "a", "savedAt": datetime(2026, 10, 1, 2, tzinfo=timezone.utc), "savedProductId": "deleted-product"}),
             ("shown", {"eventType": "recommendation_shown", "savedAt": None}),
-            ("partial", {"eventType": "recommendation_shown", "savedAt": datetime.now(timezone.utc)}),
+            ("partial", {"eventType": "recommendation_shown", "savedAt": datetime(2026, 10, 2, tzinfo=timezone.utc)}),
             ("other", {"eventType": "manual_save", "savedAt": datetime.now(timezone.utc), "savedProductId": "p"}),
         ]
-        self.assertEqual(recommended_summary(events), {"total": 1})
+        result = recommended_summary(events, datetime(2026, 10, 21, tzinfo=ZoneInfo("America/Bogota")))
+        self.assertEqual(result["total"], 1)
+        self.assertEqual(result["recommendationsShown"], 3)
+        self.assertEqual(result["saveRatePercent"], 33.3)
+        self.assertEqual(result["distinctSavers"], 1)
+        self.assertEqual(result["monthlySaves"][-2]["count"], 1)
+        self.assertEqual(result["monthlySaves"][-2]["barPercent"], 100)
+        self.assertEqual(result["monthlySaves"][-1]["count"], 0)
+
+    def test_bq3_monthly_breakdown_handles_repeat_savers_and_undated_events(self):
+        events = [
+            ("a", {"eventType": "recommendation_shown", "userId": "u1", "savedAt": datetime(2026, 10, 2, tzinfo=timezone.utc), "savedProductId": "p1"}),
+            ("b", {"eventType": "recommendation_shown", "userId": "u1", "savedAt": datetime(2026, 10, 3, tzinfo=timezone.utc), "savedProductId": "p2"}),
+            ("c", {"eventType": "recommendation_shown", "userId": "u2", "savedAt": datetime(2026, 9, 5, tzinfo=timezone.utc), "savedProductId": "p3"}),
+            ("old", {"eventType": "recommendation_shown", "userId": "u3", "savedAt": datetime(2025, 1, 1, tzinfo=timezone.utc), "savedProductId": "p4"}),
+            ("undated", {"eventType": "recommendation_shown", "userId": "u4", "savedAt": "legacy-date", "savedProductId": "p5"}),
+        ]
+        result = recommended_summary(events, datetime(2026, 10, 21, tzinfo=ZoneInfo("America/Bogota")))
+        self.assertEqual((result["total"], result["distinctSavers"], result["undatedSaves"]), (5, 4, 1))
+        self.assertEqual(result["monthlySaves"][-2]["count"], 1)
+        self.assertEqual(result["monthlySaves"][-2]["barPercent"], 50)
+        self.assertEqual(result["monthlySaves"][-1]["count"], 2)
+
+    def test_bq3_empty_events_have_zero_rate_and_empty_months(self):
+        result = recommended_summary([], datetime(2026, 10, 21, tzinfo=ZoneInfo("America/Bogota")))
+        self.assertEqual((result["total"], result["recommendationsShown"], result["saveRatePercent"]), (0, 0, 0))
+        self.assertEqual(len(result["monthlySaves"]), 6)
+        self.assertTrue(all(month["count"] == 0 and month["barPercent"] == 0 for month in result["monthlySaves"]))
 
     def test_purchase_month_uses_bogota_and_ignores_unpurchased(self):
         products = [
