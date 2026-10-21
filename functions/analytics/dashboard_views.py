@@ -1,4 +1,9 @@
-"""Admin-only analytics corresponding to the four Flutter admin screens."""
+"""Web dashboard views for the team's business questions.
+
+The demographic view is a legacy view of current product owners. It is not
+BQ6, which Juan Felipe Sáenz implements for purchased-product buyers in
+``bq6_demographics.py``.
+"""
 
 from collections import Counter
 from datetime import datetime
@@ -9,10 +14,15 @@ BOGOTA = ZoneInfo("America/Bogota")
 
 
 def _read_collection(db, name):
+    """Load source records shared by the dashboard's BQ calculations."""
     return [(doc.id, doc.to_dict() or {}) for doc in db.collection(name).stream()]
 
 
 def saved_summary(products, profiles):
+    """BQ1 (Jerónimo Franco), BQ2 (Juliana Durán), and BQ5 (Martín Riveira).
+
+    Report saved-product counts, users with 2+ products, and users with none.
+    """
     counts = Counter(data.get("ownerId", "") for _, data in products)
     buckets = [0] * 5
     for count in counts.values():
@@ -31,7 +41,10 @@ def saved_summary(products, profiles):
 
 
 def recommended_summary(events):
-    """Count successful recommendation saves, including later-deleted products."""
+    """BQ3 (Santiago Casasbuenas): count successful recommendation saves.
+
+    Events remain counted even if their saved product is later deleted.
+    """
     return {"total": sum(
         data.get("eventType") == "recommendation_shown"
         and data.get("savedAt") is not None
@@ -42,6 +55,10 @@ def recommended_summary(events):
 
 
 def purchased_summary(products, now, window_months):
+    """BQ4 chart (Miguel Velandia): monthly purchased-product counts by category.
+
+    The exact top-category BQ4 answer is in bq4_purchases_by_category.py.
+    """
     months = []
     for offset in range(window_months - 1, -1, -1):
         absolute_month = now.year * 12 + now.month - 1 - offset
@@ -72,6 +89,10 @@ def purchased_summary(products, now, window_months):
 
 
 def demographic_summary(category_id, products, profiles, cities):
+    """Legacy demographic view of current product owners; no assigned BQ.
+
+    BQ6 (Juan Felipe Sáenz) instead profiles purchased-product buyers.
+    """
     owner_ids = {p.get("ownerId") for _, p in products if p.get("categoryId") == category_id}
     users = [p for uid, p in profiles if uid in owner_ids]
     total = len(users)
@@ -88,6 +109,7 @@ def demographic_summary(category_id, products, profiles, cities):
         city_counts[user.get("cityId") or "other"] += 1
 
     def group(label, count):
+        """Format one segment of the legacy demographic view."""
         return {"label": label, "count": count, "percent": (count * 100 + total // 2) // total if total else 0}
 
     city_names = {uid: data.get("name", uid) for uid, data in cities}
@@ -104,14 +126,17 @@ def demographic_summary(category_id, products, profiles, cities):
 
 
 def compute_saved(db, params):
+    """Load BQ1 (Jerónimo), BQ2 (Juliana), and BQ5 (Martín) inputs."""
     return saved_summary(_read_collection(db, "products"), _read_collection(db, "users"))
 
 
 def compute_recommended(db, params):
+    """Load BQ3 recommendation events (Santiago Casasbuenas)."""
     return recommended_summary(_read_collection(db, "productEvents"))
 
 
 def compute_purchased(db, params):
+    """Load the BQ4 supporting purchase chart (Miguel Velandia)."""
     from firebase_functions import https_fn
 
     months = params.get("months", 6)
@@ -124,6 +149,7 @@ def compute_purchased(db, params):
 
 
 def compute_demographic(db, params):
+    """Load the legacy owner profile, distinct from Juan Felipe's BQ6."""
     from firebase_functions import https_fn
 
     categories = _read_collection(db, "categories")

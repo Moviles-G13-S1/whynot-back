@@ -1,10 +1,16 @@
 # Admin analytics
 
-The callable function `get_admin_analytics` remains available for other
-clients. The local HTML dashboard reads Firestore through the Web SDK, like
-the Flutter admin views, so it does not depend on this callable's HTTP access.
-Both paths require the `admin: true` application claim. BQ3 counts successful
-`productEvents`; it does not read or write `adminMetrics`.
+The HTML dashboard calls `get_admin_analytics` for processed results. The
+function requires the `admin: true` application claim, then reads Firestore
+through the Admin SDK. BQ3 counts successful `productEvents`; it does not read
+or write `adminMetrics`.
+
+This second-generation Firebase function uses an underlying Cloud Run service.
+Its invoker policy must allow requests to reach the callable; the callable then
+checks the Firebase ID token before returning analytics. The deployed service
+`get-admin-analytics` in `whynot-f4ae6/us-central1` grants `roles/run.invoker`
+to `allUsers` for that transport step. An unauthenticated call still returns
+Firebase `unauthenticated` (HTTP 401).
 
 ## Contract
 
@@ -49,8 +55,8 @@ The metric keys are:
 | `save_attempts` | `{}` | `productSaveEvents`: product-save successes and failures per platform (BQ Type 2) |
 
 The callable's four view calculators live in
-`functions/analytics/dashboard_views.py`. The HTML dashboard performs the
-equivalent calculations in `whynot-analytics-dashboard/src/analytics.js`.
+`functions/analytics/dashboard_views.py`. The HTML dashboard renders the
+processed `data` field returned by the callable.
 The web `demographic` view and `bq6` answer different questions because the
 existing Flutter screen includes owners of current products whether or not a
 product was purchased.
