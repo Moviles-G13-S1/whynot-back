@@ -23,18 +23,39 @@ def saved_summary(products, profiles):
 
     Report saved-product counts, users with 2+ products, and users with none.
     """
+
+    # Count how many products each user currently has saved.
+    # The ownerId field identifies the user who owns each product.
     counts = Counter(data.get("ownerId", "") for _, data in products)
+
     buckets = [0] * 5
     for count in counts.values():
         buckets[0 if count <= 5 else 1 if count <= 10 else 2 if count <= 20 else 3 if count <= 50 else 4] += 1
+
+    # BQ2 — How many users save another product after their first one?
+    # Responsible: Juliana Durán
+    #
+    # We want to count users with at least two currently saved products.
+    #
+    # Step 1: Count users who have at least one saved product.
     active = len(counts)
+
+    # Step 2: Count users who have exactly one saved product.
     singles = sum(count == 1 for count in counts.values())
+
+    # Step 3: Subtract single-product users from active users.
+    # The result represents users with two or more saved products.
+    # This measures current saved products, not historical save events.
+
     return {
         "activeUsers": active,
         "zeroProductUsers": sum(uid not in counts for uid, _ in profiles),
         "totalProducts": len(products),
         "singleProductUsers": singles,
+
+        # BQ2 (Juliana Durán): Users with 2+ currently saved products.
         "multipleProductUsers": active - singles,
+
         "averagePerActiveUser": len(products) / active if active else 0,
         "distributionCounts": buckets,
     }
