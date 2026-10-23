@@ -337,6 +337,24 @@ describe('users', () => {
     await assertFails(setDoc(ownProfile, missingCity));
   });
 
+  it('accepts only the owner\'s profile photo path', async () => {
+    await seedFixtures({ includeUsers: true });
+    const alice = firestoreFor(aliceUid, aliceEmail);
+    const ownProfile = doc(alice, `users/${aliceUid}`);
+    await assertSucceeds(updateDoc(ownProfile, {
+      photoPath: `profilePhotos/${aliceUid}/123-456.jpg`,
+      updatedAt: serverTimestamp(),
+    }));
+    await assertFails(updateDoc(ownProfile, {
+      photoPath: `profilePhotos/${bobUid}/123-456.jpg`,
+      updatedAt: serverTimestamp(),
+    }));
+    await assertFails(updateDoc(ownProfile, {
+      photoPath: 'https://example.com/photo.jpg',
+      updatedAt: serverTimestamp(),
+    }));
+  });
+
   it('allows documented edits and keeps email and createdAt immutable', async () => {
     await seedFixtures({ includeUsers: true });
     const alice = firestoreFor(aliceUid, aliceEmail);

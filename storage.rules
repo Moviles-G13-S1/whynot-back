@@ -1,0 +1,21 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Santiago Casasbuenas: Restrict profile images to their authenticated owner.
+    match /profilePhotos/{uid}/{fileName} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && fileName.matches('^[0-9]+-[0-9]+\\.(jpg|png)$')
+        && request.resource.size > 0
+        && request.resource.size <= 5 * 1024 * 1024
+        && ((fileName.matches('.*\\.jpg$') && request.resource.contentType == 'image/jpeg')
+          || (fileName.matches('.*\\.png$') && request.resource.contentType == 'image/png'));
+      allow update: if false;
+    }
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
