@@ -84,6 +84,9 @@ service cloud.firestore {
           'categoryId',
           'imageUrl',
           'emoji',
+          'deleting',
+          'deleteOperationId',
+          'deleteReservedAt',
           'createdAt',
           'updatedAt'
         ])
@@ -92,6 +95,9 @@ service cloud.firestore {
         && validString(data.imageUrl, 2048)
         && (!data.keys().hasAny(['emoji'])
           || data.emoji in ['🎁', '✨', '❤️', '🛍️', '👗', '🎮', '🏠', '✈️'])
+        && (!data.keys().hasAny(['deleting']) || data.deleting is bool)
+        && (!data.keys().hasAny(['deleteOperationId']) || validNonEmptyString(data.deleteOperationId, 128))
+        && (!data.keys().hasAny(['deleteReservedAt']) || data.deleteReservedAt is timestamp)
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
     }
@@ -111,6 +117,7 @@ service cloud.firestore {
 
     function validProductWishlist(data) {
       return wishlistBelongsToCurrentUser(data.wishlistId)
+        && get(/databases/$(database)/documents/wishlists/$(data.wishlistId)).data.get('deleting', false) == false
         && get(
           /databases/$(database)/documents/wishlists/$(data.wishlistId)
         ).data.categoryId == data.categoryId;
@@ -256,11 +263,19 @@ service cloud.firestore {
 
       allow create: if signedIn()
         && validWishlist(request.resource.data)
+        && !request.resource.data.keys().hasAny(['deleting', 'deleteOperationId', 'deleteReservedAt'])
         && request.resource.data.ownerId == currentUid()
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
 
-      allow update, delete: if false;
+      allow update: if signedIn()
+        && resource.data.ownerId == currentUid()
+        && resource.data.get('deleting', false) == false
+        && validWishlist(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['imageUrl', 'emoji', 'updatedAt'])
+        && request.resource.data.updatedAt == request.time;
+      // Deletion is handled by a callable transaction that checks products.
+      allow delete: if false;
     }
 
     match /products/{productId} {
@@ -334,6 +349,41 @@ service cloud.firestore {
 
     match /productSaveEvents/{eventId} {
       allow create: if signedIn() && validProductSaveEvent(request.resource.data);
+      allow read: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    match /wishlistInteractionEvents/{eventId} {
+      allow create: if signedIn()
+        && eventId == request.resource.data.operationId
+        && request.resource.data.keys().hasAll(['action', 'outcome', 'reason', 'userId', 'platform', 'operationId', 'schemaVersion', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['action', 'outcome', 'reason', 'userId', 'wishlistId', 'categoryId', 'platform', 'operationId', 'schemaVersion', 'createdAt'])
+        && request.resource.data.userId == currentUid()
+        && request.resource.data.action in ['create_form_open', 'create_form_cancel', 'create', 'open', 'edit']
+        && (
+          (request.resource.data.action in ['create_form_open', 'create_form_cancel', 'open']
+            && request.resource.data.outcome == 'intent'
+            && request.resource.data.reason == 'none')
+          || (request.resource.data.action in ['create', 'edit']
+            && request.resource.data.outcome in ['success', 'failure']
+            && ((request.resource.data.outcome == 'success' && request.resource.data.reason == 'none')
+              || (request.resource.data.outcome == 'failure' && request.resource.data.reason in ['validation', 'network', 'permission', 'unknown', 'not_found'])))
+        )
+        && request.resource.data.reason in ['none', 'validation', 'network', 'permission', 'unknown', 'nonempty', 'not_found']
+        && request.resource.data.platform in ['android', 'ios', 'web']
+        && request.resource.data.schemaVersion == 1
+        && validNonEmptyString(request.resource.data.operationId, 128)
+        && (!request.resource.data.keys().hasAny(['wishlistId']) || validNonEmptyString(request.resource.data.wishlistId, 128))
+        && (!request.resource.data.keys().hasAny(['categoryId']) || validNonEmptyString(request.resource.data.categoryId, 128))
+        && (request.resource.data.outcome != 'success' || (
+          request.resource.data.keys().hasAny(['wishlistId'])
+          && existsAfter(/databases/$(database)/documents/wishlists/$(request.resource.data.wishlistId))
+          && getAfter(/databases/$(database)/documents/wishlists/$(request.resource.data.wishlistId)).data.ownerId == currentUid()
+          && getAfter(/databases/$(database)/documents/wishlists/$(request.resource.data.wishlistId)).data.updatedAt == request.time
+          && (request.resource.data.action != 'create'
+            || !exists(/databases/$(database)/documents/wishlists/$(request.resource.data.wishlistId)))
+        ))
+        && request.resource.data.createdAt == request.time;
       allow read: if isAdmin();
       allow update, delete: if false;
     }

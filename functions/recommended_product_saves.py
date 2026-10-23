@@ -303,6 +303,19 @@ def save_recommended_product(req: https_fn.CallableRequest):
                 "productId": saved_product_id,
             }
 
+        # The delete callable reserves the wishlist before checking for
+        # products. Read it inside this transaction so a concurrent reserve
+        # retries this save and the marker is enforced at commit time.
+        current_wishlist = wishlist_ref.get(transaction=transaction)
+        if (not current_wishlist.exists
+                or current_wishlist.to_dict().get("ownerId") != current_uid
+                or current_wishlist.to_dict().get("categoryId") != source_product["categoryId"]
+                or current_wishlist.to_dict().get("deleting", False)):
+            raise https_fn.HttpsError(
+                code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+                message="The wishlist is unavailable. Please try again.",
+            )
+
         transaction.set(
             saved_product_ref,
             {

@@ -17,6 +17,7 @@ from recommendations import get_recommendation as handle_get_recommendation
 from recommended_product_saves import (
     save_recommended_product as handle_save_recommended_product,
 )
+from wishlist_mutations import delete_empty_wishlist as handle_delete_empty_wishlist
 
 
 IS_EMULATOR = any([
@@ -62,3 +63,9 @@ def get_nearest_store(req: https_fn.CallableRequest):
 def get_admin_analytics(req: https_fn.CallableRequest):
     """Return one processed admin metric; requires the admin claim."""
     return handle_get_admin_analytics(req)
+
+
+@https_fn.on_call()
+def delete_empty_wishlist(req: https_fn.CallableRequest):
+    """Delete only an owned, empty wishlist and record the outcome."""
+    return handle_delete_empty_wishlist(req)

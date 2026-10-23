@@ -17,6 +17,7 @@ from . import (
     onboarding,
     product_save_attempts,
     home_activation,
+    wishlist_interactions,
 )
 
 
@@ -31,6 +32,7 @@ METRICS = {
     "demographic": dashboard_views.compute_demographic,
     "save_attempts": product_save_attempts.compute_from_firestore,
     "onboarding": onboarding.compute_from_firestore,
+    "wishlist_interactions": wishlist_interactions.compute_from_firestore,
 }
 
 

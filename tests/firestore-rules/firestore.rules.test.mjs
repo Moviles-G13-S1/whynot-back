@@ -16,6 +16,7 @@ import {
   setDoc,
   Timestamp,
   updateDoc,
+  writeBatch,
   where,
 } from 'firebase/firestore';
 
@@ -466,7 +467,7 @@ describe('wishlists', () => {
     await assertFails(setDoc(target, validWishlist({ unexpected: true })));
   });
 
-  it('denies foreign reads, updates, and deletes', async () => {
+  it('allows owner presentation edits and denies identity changes or client deletion', async () => {
     const alice = firestoreFor(aliceUid, aliceEmail);
     const bob = firestoreFor(bobUid, bobEmail);
 
@@ -479,11 +480,69 @@ describe('wishlists', () => {
         ),
       ),
     );
-    await assertFails(updateDoc(doc(alice, 'wishlists/alice-fashion'), {
+    await assertSucceeds(updateDoc(doc(alice, 'wishlists/alice-fashion'), {
       imageUrl: 'https://example.com/new.jpg',
       updatedAt: serverTimestamp(),
     }));
+    await assertSucceeds(updateDoc(doc(alice, 'wishlists/alice-fashion'), { emoji: '🎁', updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(alice, 'wishlists/alice-fashion'), { categoryId: 'beauty', updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(alice, 'wishlists/alice-fashion'), { ownerId: bobUid, updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(bob, 'wishlists/alice-fashion'), { emoji: '🎁', updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(alice, 'wishlists/alice-fashion'), { deleting: true, updatedAt: serverTimestamp() }));
     await assertFails(deleteDoc(doc(alice, 'wishlists/alice-fashion')));
+  });
+});
+
+describe('wishlistInteractionEvents', () => {
+  const event = (id, overrides = {}) => ({
+    action: 'open', outcome: 'intent', reason: 'none', userId: aliceUid,
+    wishlistId: 'alice-fashion', categoryId: 'fashion', platform: 'android',
+    operationId: id, schemaVersion: 1, createdAt: serverTimestamp(), ...overrides,
+  });
+  it('allows only owner-created, strictly shaped append-only events', async () => {
+    const alice = firestoreFor(aliceUid, aliceEmail);
+    const bob = firestoreFor(bobUid, bobEmail);
+    const admin = firestoreFor(bobUid, bobEmail, { admin: true });
+    await assertSucceeds(setDoc(doc(alice, 'wishlistInteractionEvents/open-1'), event('open-1')));
+    await assertFails(setDoc(doc(alice, 'wishlistInteractionEvents/open-1'), event('open-1')));
+    await assertFails(setDoc(doc(alice, 'wishlistInteractionEvents/bad-user'), event('bad-user', { userId: bobUid })));
+    await assertFails(setDoc(doc(alice, 'wishlistInteractionEvents/bad-id'), event('different')));
+    await assertFails(setDoc(doc(alice, 'wishlistInteractionEvents/bad-field'), event('bad-field', { imageUrl: 'secret' })));
+    await assertFails(setDoc(doc(alice, 'wishlistInteractionEvents/bad-schema'), event('bad-schema', { schemaVersion: 2 })));
+    await assertFails(setDoc(doc(alice, 'wishlistInteractionEvents/fake-delete'), event('fake-delete', { action: 'delete', outcome: 'success' })));
+    await assertFails(setDoc(doc(alice, 'wishlistInteractionEvents/fake-create'), event('fake-create', { action: 'create', outcome: 'success' })));
+    await assertFails(getDoc(doc(alice, 'wishlistInteractionEvents/open-1')));
+    await assertFails(getDoc(doc(bob, 'wishlistInteractionEvents/open-1')));
+    await assertSucceeds(getDoc(doc(admin, 'wishlistInteractionEvents/open-1')));
+    await assertFails(deleteDoc(doc(admin, 'wishlistInteractionEvents/open-1')));
+  });
+  it('accepts create and edit success only with the completed wishlist write', async () => {
+    const alice = firestoreFor(aliceUid, aliceEmail);
+    const created = writeBatch(alice);
+    created.set(doc(alice, 'wishlists/new-tracked'), validWishlist());
+    created.set(doc(alice, 'wishlistInteractionEvents/create-1'), event('create-1', {
+      action: 'create', outcome: 'success', wishlistId: 'new-tracked',
+    }));
+    await assertSucceeds(created.commit());
+
+    const edited = writeBatch(alice);
+    edited.update(doc(alice, 'wishlists/new-tracked'), { emoji: '🎁', updatedAt: serverTimestamp() });
+    edited.set(doc(alice, 'wishlistInteractionEvents/edit-1'), event('edit-1', {
+      action: 'edit', outcome: 'success', wishlistId: 'new-tracked',
+    }));
+    await assertSucceeds(edited.commit());
+  });
+});
+
+describe('wishlist delete guard', () => {
+  it('rejects new products while the server has reserved deletion', async () => {
+    await testEnvironment.withSecurityRulesDisabled(async context => {
+      await updateDoc(doc(context.firestore(), 'wishlists/alice-fashion'), {
+        deleting: true, deleteOperationId: 'operation-1',
+      });
+    });
+    const alice = firestoreFor(aliceUid, aliceEmail);
+    await assertFails(setDoc(doc(alice, 'products/during-delete'), validProduct()));
   });
 });
 
