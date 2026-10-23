@@ -187,6 +187,26 @@ service cloud.firestore {
         && data.createdAt == request.time;
     }
 
+    function validOnboardingEvent(eventId, data) {
+      return data.keys().hasAll([
+          'userId',
+          'platform',
+          'step',
+          'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'userId',
+          'platform',
+          'step',
+          'createdAt'
+        ])
+        && data.userId == currentUid()
+        && data.platform in ['android', 'ios']
+        && data.step in ['sign_up_completed', 'first_wishlist_created']
+        && eventId == currentUid() + '_' + data.step
+        && data.createdAt == request.time;
+    }
+
     match /users/{uid} {
       allow get: if signedIn() && currentUid() == uid;
       allow list: if isAdmin();
@@ -298,6 +318,12 @@ service cloud.firestore {
 
     match /productSaveEvents/{eventId} {
       allow create: if signedIn() && validProductSaveEvent(request.resource.data);
+      allow read: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    match /onboardingEvents/{eventId} {
+      allow create: if signedIn() && validOnboardingEvent(eventId, request.resource.data);
       allow read: if isAdmin();
       allow update, delete: if false;
     }

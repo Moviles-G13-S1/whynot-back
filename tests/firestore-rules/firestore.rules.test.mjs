@@ -289,6 +289,24 @@ describe('default and category access', () => {
   });
 });
 
+describe('existing onboarding event rules', () => {
+  it('preserves owner event creation and denies a foreign event', async () => {
+    const alice = firestoreFor(aliceUid, aliceEmail);
+    await assertSucceeds(setDoc(doc(alice, `onboardingEvents/${aliceUid}_sign_up_completed`), {
+      userId: aliceUid,
+      platform: 'ios',
+      step: 'sign_up_completed',
+      createdAt: serverTimestamp(),
+    }));
+    await assertFails(setDoc(doc(alice, `onboardingEvents/${bobUid}_sign_up_completed`), {
+      userId: bobUid,
+      platform: 'ios',
+      step: 'sign_up_completed',
+      createdAt: serverTimestamp(),
+    }));
+  });
+});
+
 describe('users', () => {
   it('allows a user to create and read a valid own profile', async () => {
     const alice = firestoreFor(aliceUid, aliceEmail);
