@@ -316,6 +316,19 @@ service cloud.firestore {
       allow delete: if signedIn() && resource.data.ownerId == currentUid();
     }
 
+    match /uxEvents/{eventId} {
+      allow create: if signedIn()
+        && request.resource.data.keys().hasAll(['userId', 'eventName', 'source', 'platform', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['userId', 'eventName', 'source', 'platform', 'createdAt'])
+        && request.resource.data.userId == currentUid()
+        && request.resource.data.platform == 'android'
+        && request.resource.data.eventName in ['home_empty_state_viewed', 'home_empty_state_clicked', 'add_product_navigation']
+        && request.resource.data.source in ['home_empty_state', 'home_bottom_bar']
+        && request.resource.data.createdAt == request.time;
+      allow read: if isAdmin();
+      allow update, delete: if false;
+    }
+
     match /productSaveEvents/{eventId} {
       allow create: if signedIn() && validProductSaveEvent(request.resource.data);
       allow read: if isAdmin();

@@ -91,6 +91,16 @@ function validSaveEvent(overrides = {}) {
   };
 }
 
+function validOnboardingEvent(overrides = {}) {
+  return {
+    userId: aliceUid,
+    platform: 'android',
+    step: 'sign_up_completed',
+    createdAt: serverTimestamp(),
+    ...overrides,
+  };
+}
+
 async function seedFixtures({ includeUsers = false, includeProducts = false } = {}) {
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     const firestore = context.firestore();
@@ -664,5 +674,64 @@ describe('productSaveEvents', () => {
     await assertFails(updateDoc(doc(alice, 'productSaveEvents/mine'), { outcome: 'failure' }));
     await assertFails(deleteDoc(doc(alice, 'productSaveEvents/mine')));
     await assertFails(deleteDoc(doc(admin, 'productSaveEvents/mine')));
+  });
+});
+
+describe('onboardingEvents', () => {
+  it('allows a user to record each of their own onboarding steps once', async () => {
+    const alice = firestoreFor(aliceUid, aliceEmail);
+
+    await assertSucceeds(setDoc(
+      doc(alice, `onboardingEvents/${aliceUid}_sign_up_completed`),
+      validOnboardingEvent(),
+    ));
+    await assertSucceeds(setDoc(
+      doc(alice, `onboardingEvents/${aliceUid}_first_wishlist_created`),
+      validOnboardingEvent({ step: 'first_wishlist_created', platform: 'ios' }),
+    ));
+
+    // A second write to the same step is an update, which is never allowed.
+    await assertFails(setDoc(
+      doc(alice, `onboardingEvents/${aliceUid}_sign_up_completed`),
+      validOnboardingEvent(),
+    ));
+  });
+
+  it('rejects foreign, malformed, misnamed, and unauthenticated events', async () => {
+    const alice = firestoreFor(aliceUid, aliceEmail);
+    const visitor = unauthenticatedFirestore();
+    const aliceSignUp = `onboardingEvents/${aliceUid}_sign_up_completed`;
+
+    await assertFails(setDoc(doc(visitor, aliceSignUp), validOnboardingEvent()));
+    await assertFails(setDoc(doc(alice, 'onboardingEvents/random-id'), validOnboardingEvent()));
+    await assertFails(setDoc(
+      doc(alice, `onboardingEvents/${bobUid}_sign_up_completed`),
+      validOnboardingEvent({ userId: bobUid }),
+    ));
+
+    for (const overrides of [
+      { platform: 'web' },
+      { step: 'first_purchase' },
+      { createdAt: Timestamp.fromMillis(1_700_000_000_000) },
+      { extra: true },
+    ]) {
+      await assertFails(setDoc(doc(alice, aliceSignUp), validOnboardingEvent(overrides)));
+    }
+  });
+
+  it('lets only administrators read events and nobody edit them', async () => {
+    const alice = firestoreFor(aliceUid, aliceEmail);
+    const admin = firestoreFor(bobUid, bobEmail, { admin: true });
+    const aliceSignUp = `onboardingEvents/${aliceUid}_sign_up_completed`;
+
+    await assertSucceeds(setDoc(doc(alice, aliceSignUp), validOnboardingEvent()));
+
+    await assertFails(getDoc(doc(alice, aliceSignUp)));
+    await assertFails(getDocs(collection(alice, 'onboardingEvents')));
+    await assertSucceeds(getDoc(doc(admin, aliceSignUp)));
+    await assertSucceeds(getDocs(collection(admin, 'onboardingEvents')));
+
+    await assertFails(deleteDoc(doc(alice, aliceSignUp)));
+    await assertFails(deleteDoc(doc(admin, aliceSignUp)));
   });
 });

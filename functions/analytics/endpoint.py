@@ -14,12 +14,15 @@ from . import (
     bq4_purchases_by_category,
     bq6_demographics,
     dashboard_views,
+    onboarding,
     product_save_attempts,
+    home_activation,
 )
 
 
 # metric name -> compute_from_firestore(db, params) returning JSON-safe data.
 METRICS = {
+    "home_activation": home_activation.compute_from_firestore,
     "bq4": bq4_purchases_by_category.compute_from_firestore,
     "bq6": bq6_demographics.compute_from_firestore,
     "saved": dashboard_views.compute_saved,
@@ -27,6 +30,7 @@ METRICS = {
     "purchased": dashboard_views.compute_purchased,
     "demographic": dashboard_views.compute_demographic,
     "save_attempts": product_save_attempts.compute_from_firestore,
+    "onboarding": onboarding.compute_from_firestore,
 }
 
 
