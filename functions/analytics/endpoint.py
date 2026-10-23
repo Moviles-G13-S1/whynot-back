@@ -14,6 +14,7 @@ from . import (
     bq4_purchases_by_category,
     bq6_demographics,
     dashboard_views,
+    onboarding,
     product_save_attempts,
 )
 
@@ -27,6 +28,7 @@ METRICS = {
     "purchased": dashboard_views.compute_purchased,
     "demographic": dashboard_views.compute_demographic,
     "save_attempts": product_save_attempts.compute_from_firestore,
+    "onboarding": onboarding.compute_from_firestore,
 }
 
 
