@@ -21,7 +21,8 @@
     "deploy:firestore": "npm run test:rules && firebase deploy --only firestore",
     "deploy:functions:nearby": "npm run test:smart-features && firebase deploy --only functions:get_nearest_store",
     "seed:stores": "node scripts/seed-stores/index.mjs",
-    "test:smart-features": "firebase emulators:exec --only auth,firestore,functions --project demo-whynot \"node scripts/test-smart-features/index.mjs\""
+    "test:smart-features": "firebase emulators:exec --only auth,firestore,functions --project demo-whynot \"node scripts/test-smart-features/index.mjs\"",
+    "test:wishlist-delete": "firebase emulators:exec --only auth,firestore,functions --project demo-whynot \"node scripts/test-wishlist-delete/index.mjs\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "5.0.2",
