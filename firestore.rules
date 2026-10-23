@@ -179,7 +179,7 @@ service cloud.firestore {
           'createdAt'
         ])
         && data.userId == currentUid()
-        && data.platform in ['android', 'ios']
+        && data.platform in ['android', 'ios', 'web']
         && (
           (data.outcome == 'success' && data.reason == null)
           || (data.outcome == 'failure' && validNonEmptyString(data.reason, 64))

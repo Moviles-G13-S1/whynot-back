@@ -299,6 +299,19 @@ describe('default and category access', () => {
   });
 });
 
+describe('web product-save events', () => {
+  it('keeps web analytics events valid', async () => {
+    const alice = firestoreFor(aliceUid, aliceEmail);
+    await assertSucceeds(setDoc(doc(alice, 'productSaveEvents/web-photo-audit'), {
+      userId: aliceUid,
+      platform: 'web',
+      outcome: 'success',
+      reason: null,
+      createdAt: serverTimestamp(),
+    }));
+  });
+});
+
 describe('existing onboarding event rules', () => {
   it('preserves owner event creation and denies a foreign event', async () => {
     const alice = firestoreFor(aliceUid, aliceEmail);
@@ -643,7 +656,6 @@ describe('productSaveEvents', () => {
 
     for (const overrides of [
       { userId: bobUid },
-      { platform: 'web' },
       { outcome: 'maybe' },
       { outcome: 'success', reason: 'invalid_price' },
       { outcome: 'failure', reason: null },
