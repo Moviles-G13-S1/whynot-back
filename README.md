@@ -286,3 +286,21 @@ For every contract or authorization change:
 5. Run `npm test`.
 6. Coordinate the contract change with both mobile teams.
 7. Deploy only after review.
+
+## Profile photo Storage rules
+
+The Flutter profile photo feature needs the default Firebase Storage bucket
+`whynot-f4ae6.firebasestorage.app` to exist. `storage.rules` permits a signed-in
+user to read and delete only their own photo files and to upload JPEG or PNG
+files up to 5 MB in their own `profilePhotos/{uid}` directory. Firestore rules
+permit only a matching owner path in `users/{uid}.photoPath`.
+
+After provisioning the bucket and reviewing these rules, deploy both rule sets
+with explicit targets:
+
+```bash
+npm run deploy:firestore -- --project whynot-f4ae6
+npm run deploy:storage -- --project whynot-f4ae6
+```
+
+Neither command is run automatically by the mobile app.

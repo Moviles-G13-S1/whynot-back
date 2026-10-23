@@ -299,6 +299,37 @@ describe('default and category access', () => {
   });
 });
 
+describe('web product-save events', () => {
+  it('keeps web analytics events valid', async () => {
+    const alice = firestoreFor(aliceUid, aliceEmail);
+    await assertSucceeds(setDoc(doc(alice, 'productSaveEvents/web-photo-audit'), {
+      userId: aliceUid,
+      platform: 'web',
+      outcome: 'success',
+      reason: null,
+      createdAt: serverTimestamp(),
+    }));
+  });
+});
+
+describe('existing onboarding event rules', () => {
+  it('preserves owner event creation and denies a foreign event', async () => {
+    const alice = firestoreFor(aliceUid, aliceEmail);
+    await assertSucceeds(setDoc(doc(alice, `onboardingEvents/${aliceUid}_sign_up_completed`), {
+      userId: aliceUid,
+      platform: 'ios',
+      step: 'sign_up_completed',
+      createdAt: serverTimestamp(),
+    }));
+    await assertFails(setDoc(doc(alice, `onboardingEvents/${bobUid}_sign_up_completed`), {
+      userId: bobUid,
+      platform: 'ios',
+      step: 'sign_up_completed',
+      createdAt: serverTimestamp(),
+    }));
+  });
+});
+
 describe('users', () => {
   it('allows a user to create and read a valid own profile', async () => {
     const alice = firestoreFor(aliceUid, aliceEmail);
@@ -345,6 +376,24 @@ describe('users', () => {
     const missingCity = validUser();
     delete missingCity.cityId;
     await assertFails(setDoc(ownProfile, missingCity));
+  });
+
+  it('accepts only the owner\'s profile photo path', async () => {
+    await seedFixtures({ includeUsers: true });
+    const alice = firestoreFor(aliceUid, aliceEmail);
+    const ownProfile = doc(alice, `users/${aliceUid}`);
+    await assertSucceeds(updateDoc(ownProfile, {
+      photoPath: `profilePhotos/${aliceUid}/123-456.jpg`,
+      updatedAt: serverTimestamp(),
+    }));
+    await assertFails(updateDoc(ownProfile, {
+      photoPath: `profilePhotos/${bobUid}/123-456.jpg`,
+      updatedAt: serverTimestamp(),
+    }));
+    await assertFails(updateDoc(ownProfile, {
+      photoPath: 'https://example.com/photo.jpg',
+      updatedAt: serverTimestamp(),
+    }));
   });
 
   it('allows documented edits and keeps email and createdAt immutable', async () => {
@@ -607,7 +656,6 @@ describe('productSaveEvents', () => {
 
     for (const overrides of [
       { userId: bobUid },
-      { platform: 'web' },
       { outcome: 'maybe' },
       { outcome: 'success', reason: 'invalid_price' },
       { outcome: 'failure', reason: null },

@@ -34,7 +34,8 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/cities/$(cityId));
     }
 
-    function validUser(data) {
+    // Santiago Casasbuenas: Validate private photo paths alongside profile fields.
+    function validUser(data, uid) {
       return data.keys().hasAll([
           'name',
           'email',
@@ -51,6 +52,7 @@ service cloud.firestore {
           'age',
           'preferredCategoryId',
           'cityId',
+          'photoPath',
           'createdAt',
           'updatedAt'
         ])
@@ -62,6 +64,9 @@ service cloud.firestore {
         && data.age <= 120
         && categoryExists(data.preferredCategoryId)
         && (!data.keys().hasAny(['cityId']) || cityExists(data.cityId))
+        && (!data.keys().hasAny(['photoPath'])
+          || (data.photoPath is string
+            && data.photoPath.matches('^profilePhotos/' + uid + '/[0-9]+-[0-9]+\\.(jpg|png)$')))
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
     }
@@ -174,7 +179,7 @@ service cloud.firestore {
           'createdAt'
         ])
         && data.userId == currentUid()
-        && data.platform in ['android', 'ios']
+        && data.platform in ['android', 'ios', 'web']
         && (
           (data.outcome == 'success' && data.reason == null)
           || (data.outcome == 'failure' && validNonEmptyString(data.reason, 64))
@@ -208,7 +213,7 @@ service cloud.firestore {
 
       allow create: if signedIn()
         && currentUid() == uid
-        && validUser(request.resource.data)
+        && validUser(request.resource.data, uid)
         && request.resource.data.keys().hasAll(['cityId'])
         && request.auth.token.email is string
         && request.resource.data.email == request.auth.token.email
@@ -217,13 +222,14 @@ service cloud.firestore {
 
       allow update: if signedIn()
         && currentUid() == uid
-        && validUser(request.resource.data)
+        && validUser(request.resource.data, uid)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'name',
           'gender',
           'age',
           'preferredCategoryId',
           'cityId',
+          'photoPath',
           'updatedAt'
         ])
         && request.resource.data.updatedAt == request.time;
