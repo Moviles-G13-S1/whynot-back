@@ -10,6 +10,8 @@ from datetime import datetime
 from statistics import median
 from zoneinfo import ZoneInfo
 
+from .bq5_zero_products import count_zero_product_users
+
 BOGOTA = ZoneInfo("America/Bogota")
 
 
@@ -49,7 +51,7 @@ def saved_summary(products, profiles):
 
     return {
         "activeUsers": active,
-        "zeroProductUsers": sum(uid not in counts for uid, _ in profiles),
+        "zeroProductUsers": count_zero_product_users(counts.keys(), profiles),
         "totalProducts": len(products),
         "singleProductUsers": singles,
 
