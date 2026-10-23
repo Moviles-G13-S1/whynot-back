@@ -80,11 +80,18 @@ denied. Run the privileged category seed to create or repair these documents.
 | `ownerId` | string | Authenticated UID; immutable |
 | `categoryId` | string | Must reference an existing category |
 | `imageUrl` | string | Up to 2,048 characters; may be empty |
+| `emoji` | string (optional) | One curated choice: 🎁, ✨, ❤️, 🛍️, 👗, 🎮, 🏠, ✈️ |
 | `createdAt` | timestamp | Server timestamp on create; immutable |
 | `updatedAt` | timestamp | Server timestamp on create |
 
 Clients may create, get, and query their own wishlists. Updates and deletes
 are denied until their semantics and product cascade behavior are defined.
+
+The Flutter client offers only the curated emoji values above. When `emoji` is
+present, it uses that value for the wishlist thumbnail even if `imageUrl` is
+also present. Older documents omit `emoji` and continue to use their picture
+or the neutral card background. Other clients, including Kotlin readers,
+should treat this field as optional and may ignore it.
 
 The UI currently tries to maintain one wishlist per owner/category pair, but
 that uniqueness is not a backend invariant. Auto-generated wishlist IDs make

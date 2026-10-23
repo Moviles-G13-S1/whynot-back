@@ -83,12 +83,15 @@ service cloud.firestore {
           'ownerId',
           'categoryId',
           'imageUrl',
+          'emoji',
           'createdAt',
           'updatedAt'
         ])
         && validNonEmptyString(data.ownerId, 128)
         && categoryExists(data.categoryId)
         && validString(data.imageUrl, 2048)
+        && (!data.keys().hasAny(['emoji'])
+          || data.emoji in ['🎁', '✨', '❤️', '🛍️', '👗', '🎮', '🏠', '✈️'])
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
     }

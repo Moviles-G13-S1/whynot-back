@@ -432,6 +432,13 @@ describe('users', () => {
 });
 
 describe('wishlists', () => {
+  it('accepts curated emoji while keeping older documents readable', async () => {
+    const alice = firestoreFor(aliceUid, aliceEmail);
+    await assertSucceeds(setDoc(doc(alice, 'wishlists/emoji'), validWishlist({ emoji: '❤️' })));
+    await assertSucceeds(getDoc(doc(alice, 'wishlists/alice-fashion')));
+    await assertFails(setDoc(doc(alice, 'wishlists/freeform'), validWishlist({ emoji: '💥' })));
+    await assertFails(setDoc(doc(alice, 'wishlists/malformed'), validWishlist({ emoji: 42 })));
+  });
   it('allows valid creation and owner-scoped reads', async () => {
     const alice = firestoreFor(aliceUid, aliceEmail);
 
