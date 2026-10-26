@@ -1,5 +1,7 @@
 """Demographic product recommendation logic."""
 
+from collections import Counter, deque
+
 from firebase_admin import firestore
 from firebase_functions import https_fn
 
@@ -50,7 +52,7 @@ def _get_product_key(product):
 
 
 def _eligible_products(db, current_uid):
-    """Rank all distinct, unseen products in the user's preferred category."""
+    """Rank unseen products across preferred and personally saved categories."""
     current_user_document = db.collection("users").document(current_uid).get()
     if not current_user_document.exists:
         raise https_fn.HttpsError(
@@ -64,10 +66,23 @@ def _eligible_products(db, current_uid):
             message="Complete your profile before requesting recommendations.",
         )
 
-    current_keys = {
-        _get_product_key(doc.to_dict())
+    current_products = [
+        doc.to_dict()
         for doc in db.collection("products").where("ownerId", "==", current_uid).stream()
-    }
+    ]
+    current_keys = {_get_product_key(product) for product in current_products}
+    category_counts = Counter(
+        product["categoryId"]
+        for product in current_products
+        if isinstance(product.get("categoryId"), str)
+        and product["categoryId"].strip()
+    )
+    preferred_category = current_user["preferredCategoryId"]
+    categories = [preferred_category] + sorted(
+        (category for category in category_counts if category != preferred_category),
+        key=lambda category: (-category_counts[category], category),
+    )
+    candidates_by_category = {category: deque() for category in categories}
     ranked_users = []
     for user_document in db.collection("users").stream():
         if user_document.id == current_uid:
@@ -82,13 +97,12 @@ def _eligible_products(db, current_uid):
         ))
     ranked_users.sort()
 
-    found = []
     seen = set(current_keys)
     for _score, _age_difference, owner_id in ranked_users:
         products = []
         for doc in db.collection("products").where("ownerId", "==", owner_id).stream():
             product = doc.to_dict()
-            if product.get("categoryId") != current_user["preferredCategoryId"]:
+            if product.get("categoryId") not in candidates_by_category:
                 continue
             products.append({"id": doc.id, **product})
         # Stable sorting retains Firestore order within bought/saved groups,
@@ -99,7 +113,7 @@ def _eligible_products(db, current_uid):
             if key in seen:
                 continue
             seen.add(key)
-            found.append({
+            candidates_by_category[product["categoryId"]].append({
                 "sourceProductId": product["id"],
                 "name": product.get("name", ""),
                 "brand": product.get("brand", ""),
@@ -113,6 +127,13 @@ def _eligible_products(db, current_uid):
                     else "A user with similar demographics saved this product."
                 ),
             })
+    # Santiago Casasbuenas: Interleave the user's active categories so a
+    # strong fashion match cannot hide every technology result at the bottom.
+    found = []
+    while any(candidates_by_category.values()):
+        for category in categories:
+            if candidates_by_category[category]:
+                found.append(candidates_by_category[category].popleft())
     return found
 
 
@@ -146,171 +167,46 @@ def get_recommendation(req: https_fn.CallableRequest):
             message="Request data must be an object.",
         )
     requested_source = request_data.get("sourceProductId")
-    if requested_source is not None:
-        if not isinstance(requested_source, str) or not requested_source.strip():
-            raise https_fn.HttpsError(
-                code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
-                message="sourceProductId must be a non-empty string.",
-            )
-        selected = next(
-            (item for item in _eligible_products(db, current_uid)
+    if requested_source is not None and (
+        not isinstance(requested_source, str) or not requested_source.strip()
+    ):
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
+            message="sourceProductId must be a non-empty string.",
+        )
+
+    candidates = _eligible_products(db, current_uid)
+    selected = (
+        next(
+            (item for item in candidates
              if item["sourceProductId"] == requested_source),
             None,
         )
-        if selected is None:
+        if requested_source is not None
+        else (candidates[0] if candidates else None)
+    )
+    if selected is None:
+        if requested_source is not None:
             raise https_fn.HttpsError(
                 code=https_fn.FunctionsErrorCode.NOT_FOUND,
                 message="This recommendation is no longer available.",
             )
-        event_ref = db.collection("productEvents").document()
-        event_ref.set({
-            "eventType": "recommendation_shown",
-            "userId": current_uid,
-            "sourceProductId": selected["sourceProductId"],
-            "createdAt": firestore.SERVER_TIMESTAMP,
-            "savedAt": None,
-            "savedProductId": None,
-        })
-        return {"recommendation": {
-            "recommendationEventId": event_ref.id,
-            **{k: v for k, v in selected.items() if k != "sourceProductId"},
-        }}
-
-    current_user_document = (
-        db.collection("users")
-        .document(current_uid)
-        .get()
-    )
-
-    if not current_user_document.exists:
-        raise https_fn.HttpsError(
-            code=https_fn.FunctionsErrorCode.NOT_FOUND,
-            message="User profile not found.",
-        )
-
-    current_user = current_user_document.to_dict()
-    if not has_valid_demographics(current_user):
-        raise https_fn.HttpsError(
-            code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
-            message="Complete your profile before requesting recommendations.",
-        )
-
-    preferred_category = current_user["preferredCategoryId"]
-
-    current_products = (
-        db.collection("products")
-        .where("ownerId", "==", current_uid)
-        .stream()
-    )
-    current_product_keys = {
-        _get_product_key(document.to_dict())
-        for document in current_products
-    }
-
-    ranked_users = []
-    for user_document in db.collection("users").stream():
-        if user_document.id == current_uid:
-            continue
-
-        other_user = user_document.to_dict()
-
-        # Legacy and partially-created profile documents must not make the
-        # recommendation request fail for every user. They cannot be ranked
-        # reliably, so ignore them until their owners complete their profile.
-        if not has_valid_demographics(other_user):
-            continue
-
-        ranked_users.append(
-            {
-                "id": user_document.id,
-                "score": _get_similarity_score(current_user, other_user),
-                "ageDifference": abs(
-                    current_user["age"] - other_user["age"]
-                ),
-            }
-        )
-
-    if not ranked_users:
         return {
             "recommendation": None,
-            "message": "No other users were found.",
+            "message": "No similar user has a new product in your categories.",
         }
 
-    ranked_users.sort(
-        key=lambda user: (
-            -user["score"],
-            user["ageDifference"],
-            user["id"],
-        )
-    )
-
-    recommendation = None
-    reason = None
-
-    for candidate_user in ranked_users:
-        user_products = (
-            db.collection("products")
-            .where("ownerId", "==", candidate_user["id"])
-            .stream()
-        )
-
-        purchased_candidates = []
-        saved_candidates = []
-
-        for product_document in user_products:
-            product = product_document.to_dict()
-
-            if product.get("categoryId") != preferred_category:
-                continue
-            if _get_product_key(product) in current_product_keys:
-                continue
-
-            candidate = {"id": product_document.id, **product}
-            if product.get("purchased", False):
-                purchased_candidates.append(candidate)
-            else:
-                saved_candidates.append(candidate)
-
-        if purchased_candidates:
-            recommendation = purchased_candidates[0]
-            reason = "A user with similar demographics bought this product."
-            break
-
-        if saved_candidates:
-            recommendation = saved_candidates[0]
-            reason = "A user with similar demographics saved this product."
-            break
-
-    if recommendation is None:
-        return {
-            "recommendation": None,
-            "message": (
-                "No similar user has a new product "
-                "in the preferred category."
-            ),
-        }
-
-    recommendation_event_ref = db.collection("productEvents").document()
-    recommendation_event_ref.set(
-        {
-            "eventType": "recommendation_shown",
-            "userId": current_uid,
-            "sourceProductId": recommendation["id"],
-            "createdAt": firestore.SERVER_TIMESTAMP,
-            "savedAt": None,
-            "savedProductId": None,
-        }
-    )
-
-    return {
-        "recommendation": {
-            "recommendationEventId": recommendation_event_ref.id,
-            "name": recommendation["name"],
-            "brand": recommendation["brand"],
-            "price": recommendation["price"],
-            "imageUrl": recommendation["imageUrl"],
-            "productUrl": recommendation["productUrl"],
-            "categoryId": recommendation["categoryId"],
-            "reason": reason,
-        }
-    }
+    event_ref = db.collection("productEvents").document()
+    event_ref.set({
+        "eventType": "recommendation_shown",
+        "userId": current_uid,
+        "sourceProductId": selected["sourceProductId"],
+        "createdAt": firestore.SERVER_TIMESTAMP,
+        "savedAt": None,
+        "savedProductId": None,
+    })
+    return {"recommendation": {
+        "recommendationEventId": event_ref.id,
+        **{key: value for key, value in selected.items()
+           if key != "sourceProductId"},
+    }}

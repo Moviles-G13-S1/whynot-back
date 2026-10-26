@@ -63,6 +63,7 @@ class FakeDB:
             "p1": FakeDoc("p1", {"ownerId": "peer", "name": "Jacket", "brand": "B", "productUrl": "jacket", "categoryId": "fashion", "price": 20, "imageUrl": "", "purchased": True}),
             "p2": FakeDoc("p2", {"ownerId": "peer", "name": "Shoes", "brand": "B", "productUrl": "shoes", "categoryId": "fashion", "price": 10, "imageUrl": "", "purchased": False}),
             "p3": FakeDoc("p3", {"ownerId": "other", "name": "Chair", "brand": "C", "productUrl": "chair", "categoryId": "other"}),
+            "p4": FakeDoc("p4", {"ownerId": "peer", "name": "Headphones", "brand": "B", "productUrl": "headphones", "categoryId": "technology", "price": 30, "imageUrl": "", "purchased": False}),
         })
         self.events = FakeCollection({})
 
@@ -82,6 +83,36 @@ class CatalogTest(unittest.TestCase):
         items = recommendations.get_recommendation_catalog(req)["recommendations"]
         self.assertEqual([item["sourceProductId"] for item in items], ["p1", "p2"])
         self.assertEqual(self.db.events.documents, {})
+
+    def test_saving_in_a_second_category_adds_and_interleaves_recommendations(self):
+        req = SimpleNamespace(auth=SimpleNamespace(uid="me"), data=None)
+        before = recommendations.get_recommendation_catalog(req)["recommendations"]
+        self.assertEqual([item["sourceProductId"] for item in before], ["p1", "p2"])
+        self.db.products.documents["my-tech-1"] = FakeDoc("my-tech-1", {
+            "ownerId": "me", "name": "Phone", "brand": "A",
+            "productUrl": "phone", "categoryId": "technology",
+        })
+        self.db.products.documents["my-tech-2"] = FakeDoc("my-tech-2", {
+            "ownerId": "me", "name": "Tablet", "brand": "A",
+            "productUrl": "tablet", "categoryId": "technology",
+        })
+        after = recommendations.get_recommendation_catalog(req)["recommendations"]
+        self.assertEqual(
+            [item["sourceProductId"] for item in after], ["p1", "p4", "p2"]
+        )
+        self.assertEqual(self.db.events.documents, {})
+
+    def test_top_pick_uses_active_category_when_preferred_has_no_candidates(self):
+        self.db.products.documents["my-tech"] = FakeDoc("my-tech", {
+            "ownerId": "me", "name": "Phone", "brand": "A",
+            "productUrl": "phone", "categoryId": "technology",
+        })
+        self.db.products.documents.pop("p1")
+        self.db.products.documents.pop("p2")
+        req = SimpleNamespace(auth=SimpleNamespace(uid="me"), data=None)
+        chosen = recommendations.get_recommendation(req)["recommendation"]
+        self.assertEqual(chosen["name"], "Headphones")
+        self.assertEqual(self.db.events.documents["event-1"].data["sourceProductId"], "p4")
 
     def test_open_rechecks_item_and_creates_only_its_event(self):
         req = SimpleNamespace(auth=SimpleNamespace(uid="me"), data={"sourceProductId": "p2"})
