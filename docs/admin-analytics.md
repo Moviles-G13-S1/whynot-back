@@ -53,6 +53,7 @@ The metric keys are:
 | `demographic` | `{ "categoryId": "..." }` (optional) | Current product owners, profiles, categories, and cities, matching the Flutter screen |
 | `bq6` | `{}` | Purchased-product buyers, matching the separate Kotlin BQ6 implementation |
 | `save_attempts` | `{}` | `productSaveEvents`: product-save successes and failures per platform (BQ Type 2) |
+| `buying_patterns` | `{ "months": 6 }` (6, 12, or 24) | All current `products` plus `categories`: conversion, time to purchase, when users buy, spending and repeat buyers (Sprint 3, Type *) |
 
 The callable's four view calculators live in
 `functions/analytics/dashboard_views.py`. The HTML dashboard renders the
@@ -224,6 +225,104 @@ The logic lives in `compute_demographic_profile()` in
 `functions/analytics/bq6_demographics.py`. It uses plain dictionaries and
 mirrors the Kotlin admin dashboard. The Firestore read uses a single-field
 equality query (`purchased == true`), so it needs no composite index.
+
+## Buying patterns (Sprint 3 BQ, Type *)
+
+Owner: Juan Felipe Sáenz. Module: `functions/analytics/buying_patterns.py`,
+tests in `tests/test_buying_patterns.py`.
+
+**Question.** What are the buying patterns of users based on the products they
+have marked as purchased?
+
+**Type \* (2 and 4).**
+- Type 2, direct user experience improvement: how long a saved product takes
+  to be bought, and on which days and times users buy, tells the app when a
+  reminder or highlight is actually useful.
+- Type 4, benefits from data: conversion, prices and brands per category are
+  what partner stores and brands would pay to know.
+
+**Data.** Every current `products` document (`ownerId`, `categoryId`, `brand`,
+`price`, `purchased`, `purchasedAt`, `createdAt`) and `categories` for names.
+Conversion needs the products that were not bought too, so the whole
+collection is read once per call.
+
+**Calculation.** The window is 6, 12 or 24 calendar months counting the current
+one, in America/Bogota.
+
+| Section | What it measures |
+|---|---|
+| `totalPurchases` | Purchases whose `purchasedAt` is inside the window |
+| `undatedPurchases` | Purchased products without `purchasedAt` (left out of the window figures) |
+| `conversion` | Products saved inside the window (`createdAt`) and how many are already purchased, overall and per category (`rate` is `null` when nothing was saved) |
+| `timeToPurchase` | Days from `createdAt` to `purchasedAt`: median, average, buckets (same day, 1–7, 8–30, over 30) and median per category; negative gaps are inconsistent data and are counted in `skipped` |
+| `whenTheyBuy` | Purchases per weekday and per time of day (morning 05:00–11:59, afternoon 12:00–17:59, night 18:00–04:59) with every tied peak |
+| `spending` | Median and average price per category (non-numeric or negative prices ignored) and the top 5 brands, grouped case-insensitively |
+| `repeatBuyers` | Buyers in the window with one, two to three, or four or more purchases, and the share with two or more |
+
+**Limitations.** Deleted products leave no purchase history. `price` is the
+price the user saved, not a confirmed checkout amount. Accounts created before
+`createdAt`/`purchasedAt` existed only appear in the figures that do not need
+those dates.
+
+**Calling it.**
+
+```js
+const result = await httpsCallable(functions, "get_admin_analytics")({
+  metric: "buying_patterns",
+  params: { months: 6 },
+});
+```
+
+**Example `data`** (trimmed):
+
+```json
+{
+  "monthsWindow": 6,
+  "totalPurchases": 3,
+  "undatedPurchases": 0,
+  "conversion": {
+    "savedInWindow": 5, "purchasedOfThose": 3, "rate": 0.6,
+    "byCategory": [
+      { "categoryId": "beauty", "categoryName": "Beauty", "saved": 1, "purchased": 1, "rate": 1.0 },
+      { "categoryId": "tech", "categoryName": "Technology", "saved": 3, "purchased": 2, "rate": 0.6667 }
+    ]
+  },
+  "timeToPurchase": {
+    "medianDays": 0.9, "averageDays": 3.1, "measured": 3, "skipped": 0,
+    "buckets": { "sameDay": 2, "oneToSevenDays": 0, "eightToThirtyDays": 1, "overThirtyDays": 0 },
+    "byCategory": [{ "categoryId": "tech", "categoryName": "Technology", "medianDays": 4.6, "count": 2 }]
+  },
+  "whenTheyBuy": {
+    "byWeekday": [{ "weekday": "Mon", "purchases": 0 }, { "weekday": "Fri", "purchases": 2 }],
+    "byTimeOfDay": [{ "timeOfDay": "morning", "purchases": 1 }],
+    "peakWeekday": ["Fri"],
+    "peakTimeOfDay": ["afternoon", "morning", "night"]
+  },
+  "spending": {
+    "byCategory": [{ "categoryId": "tech", "categoryName": "Technology", "purchases": 2, "medianPrice": 250000.0, "averagePrice": 250000.0 }],
+    "topBrands": [{ "brand": "Sony", "purchases": 2 }, { "brand": "Nivea", "purchases": 1 }]
+  },
+  "repeatBuyers": { "buyers": 2, "onePurchase": 1, "twoToThree": 1, "fourOrMore": 0, "repeatRate": 0.5 }
+}
+```
+
+### Suggested Admin Web view
+
+For whoever builds the dashboard view (Santiago owns the Admin Web):
+
+- A window selector (6, 12, 24 months) sent as `params.months`.
+- Headline cards: `totalPurchases`, `conversion.rate` as a percentage,
+  `timeToPurchase.medianDays`, `repeatBuyers.repeatRate`.
+- Conversion by category: horizontal bars of `conversion.byCategory[].rate`,
+  with `saved` and `purchased` in the tooltip.
+- Time to purchase: a bar per `timeToPurchase.buckets` entry.
+- When users buy: seven bars from `whenTheyBuy.byWeekday` and three from
+  `byTimeOfDay`, highlighting every entry listed in the peaks.
+- Spending: a table of `spending.byCategory` (median and average price) and a
+  ranked list of `spending.topBrands`.
+- Repeat buyers: a stacked bar or donut of `onePurchase`, `twoToThree`,
+  `fourOrMore`.
+- Show `undatedPurchases` and `timeToPurchase.skipped` as small footnotes.
 
 ## Adding a BQ
 
