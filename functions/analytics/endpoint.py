@@ -13,6 +13,7 @@ from firebase_functions import https_fn
 from . import (
     bq4_purchases_by_category,
     bq6_demographics,
+    buying_patterns,
     dashboard_views,
     onboarding,
     product_save_attempts,
@@ -33,6 +34,7 @@ METRICS = {
     "save_attempts": product_save_attempts.compute_from_firestore,
     "onboarding": onboarding.compute_from_firestore,
     "wishlist_interactions": wishlist_interactions.compute_from_firestore,
+    "buying_patterns": buying_patterns.compute_from_firestore,
 }
 
 
