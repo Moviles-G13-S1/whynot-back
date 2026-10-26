@@ -404,6 +404,24 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /recommendationHomeEvents/{eventId} {
+      allow create: if signedIn()
+        && request.resource.data.keys().hasAll(['userId', 'platform', 'eventType', 'impressionId', 'recommendationEventId', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['userId', 'platform', 'eventType', 'impressionId', 'recommendationEventId', 'createdAt'])
+        && request.resource.data.userId == currentUid()
+        && request.resource.data.platform == 'flutter'
+        && request.resource.data.eventType in ['card_displayed', 'detail_opened']
+        && request.resource.data.impressionId is string
+        && request.resource.data.impressionId.matches('^[0-9a-f]{32}$')
+        && validNonEmptyString(request.resource.data.recommendationEventId, 128)
+        && exists(/databases/$(database)/documents/productEvents/$(request.resource.data.recommendationEventId))
+        && get(/databases/$(database)/documents/productEvents/$(request.resource.data.recommendationEventId)).data.userId == currentUid()
+        && eventId == request.resource.data.impressionId + (request.resource.data.eventType == 'card_displayed' ? '_display' : '_open')
+        && request.resource.data.createdAt == request.time;
+      allow read: if isAdmin();
+      allow update, delete: if false;
+    }
+
     match /processedEvents/{document=**} {
       allow read, write: if false;
     }
