@@ -174,6 +174,12 @@ def get_recommendation(req: https_fn.CallableRequest):
             code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
             message="sourceProductId must be a non-empty string.",
         )
+    event_only = request_data.get("eventOnly", False)
+    if not isinstance(event_only, bool) or (event_only and requested_source is None):
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
+            message="eventOnly requires a sourceProductId and must be boolean.",
+        )
 
     candidates = _eligible_products(db, current_uid)
     selected = (
@@ -205,6 +211,8 @@ def get_recommendation(req: https_fn.CallableRequest):
         "savedAt": None,
         "savedProductId": None,
     })
+    if event_only:
+        return {"recommendation": {"recommendationEventId": event_ref.id}}
     return {"recommendation": {
         "recommendationEventId": event_ref.id,
         **{key: value for key, value in selected.items()

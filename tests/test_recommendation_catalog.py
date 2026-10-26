@@ -122,6 +122,25 @@ class CatalogTest(unittest.TestCase):
         self.assertEqual(self.db.events.documents["event-1"].data["sourceProductId"], "p2")
         self.assertEqual(len(self.db.events.documents), 1)
 
+    def test_repeat_open_returns_new_event_without_display_fields(self):
+        full = SimpleNamespace(auth=SimpleNamespace(uid="me"), data={"sourceProductId": "p2"})
+        first = recommendations.get_recommendation(full)["recommendation"]
+        compact = SimpleNamespace(auth=SimpleNamespace(uid="me"), data={
+            "sourceProductId": "p2", "eventOnly": True,
+        })
+        second = recommendations.get_recommendation(compact)["recommendation"]
+        self.assertEqual(first["recommendationEventId"], "event-1")
+        self.assertEqual(second, {"recommendationEventId": "event-2"})
+        self.assertEqual(len(self.db.events.documents), 2)
+
+    def test_event_only_rejects_stale_item(self):
+        compact = SimpleNamespace(auth=SimpleNamespace(uid="me"), data={
+            "sourceProductId": "missing", "eventOnly": True,
+        })
+        with self.assertRaises(recommendations.https_fn.HttpsError):
+            recommendations.get_recommendation(compact)
+        self.assertEqual(self.db.events.documents, {})
+
     def test_open_rejects_stale_item(self):
         req = SimpleNamespace(auth=SimpleNamespace(uid="me"), data={"sourceProductId": "missing"})
         with self.assertRaises(recommendations.https_fn.HttpsError):
