@@ -19,6 +19,7 @@ from . import (
     product_save_attempts,
     home_activation,
     wishlist_interactions,
+    recommendation_home_opens,
 )
 
 
@@ -35,6 +36,7 @@ METRICS = {
     "onboarding": onboarding.compute_from_firestore,
     "wishlist_interactions": wishlist_interactions.compute_from_firestore,
     "buying_patterns": buying_patterns.compute_from_firestore,
+    "recommendation_home_opens": recommendation_home_opens.compute_from_firestore,
 }
 
 
