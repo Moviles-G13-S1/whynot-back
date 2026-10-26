@@ -13,7 +13,10 @@ from firebase_functions import https_fn
 
 from analytics import get_admin_analytics as handle_get_admin_analytics
 from nearest_store import get_nearest_store as handle_get_nearest_store
-from recommendations import get_recommendation as handle_get_recommendation
+from recommendations import (
+    get_recommendation as handle_get_recommendation,
+    get_recommendation_catalog as handle_get_recommendation_catalog,
+)
 from recommended_product_saves import (
     save_recommended_product as handle_save_recommended_product,
 )
@@ -45,6 +48,12 @@ else:
 def get_recommendation(req: https_fn.CallableRequest):
     """Return a demographic product recommendation."""
     return handle_get_recommendation(req)
+
+
+@https_fn.on_call()
+def get_recommendation_catalog(req: https_fn.CallableRequest):
+    """Return all currently eligible recommendations for catalog browsing."""
+    return handle_get_recommendation_catalog(req)
 
 
 @https_fn.on_call()

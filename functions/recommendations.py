@@ -49,6 +49,83 @@ def _get_product_key(product):
     return f"{brand}|{name}"
 
 
+def _eligible_products(db, current_uid):
+    """Rank all distinct, unseen products in the user's preferred category."""
+    current_user_document = db.collection("users").document(current_uid).get()
+    if not current_user_document.exists:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.NOT_FOUND,
+            message="User profile not found.",
+        )
+    current_user = current_user_document.to_dict()
+    if not has_valid_demographics(current_user):
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+            message="Complete your profile before requesting recommendations.",
+        )
+
+    current_keys = {
+        _get_product_key(doc.to_dict())
+        for doc in db.collection("products").where("ownerId", "==", current_uid).stream()
+    }
+    ranked_users = []
+    for user_document in db.collection("users").stream():
+        if user_document.id == current_uid:
+            continue
+        other = user_document.to_dict()
+        if not has_valid_demographics(other):
+            continue
+        ranked_users.append((
+            -_get_similarity_score(current_user, other),
+            abs(current_user["age"] - other["age"]),
+            user_document.id,
+        ))
+    ranked_users.sort()
+
+    found = []
+    seen = set(current_keys)
+    for _score, _age_difference, owner_id in ranked_users:
+        products = []
+        for doc in db.collection("products").where("ownerId", "==", owner_id).stream():
+            product = doc.to_dict()
+            if product.get("categoryId") != current_user["preferredCategoryId"]:
+                continue
+            products.append({"id": doc.id, **product})
+        # Stable sorting retains Firestore order within bought/saved groups,
+        # matching the original top-pick choice for each ranked user.
+        products.sort(key=lambda product: not product.get("purchased", False))
+        for product in products:
+            key = _get_product_key(product)
+            if key in seen:
+                continue
+            seen.add(key)
+            found.append({
+                "sourceProductId": product["id"],
+                "name": product.get("name", ""),
+                "brand": product.get("brand", ""),
+                "price": product.get("price", 0),
+                "imageUrl": product.get("imageUrl", ""),
+                "productUrl": product.get("productUrl", ""),
+                "categoryId": product["categoryId"],
+                "reason": (
+                    "A user with similar demographics bought this product."
+                    if product.get("purchased", False)
+                    else "A user with similar demographics saved this product."
+                ),
+            })
+    return found
+
+
+def get_recommendation_catalog(req: https_fn.CallableRequest):
+    """Return every currently eligible product without recording a shown event."""
+    if req.auth is None:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.UNAUTHENTICATED,
+            message="You must be logged in.",
+        )
+    return {"recommendations": _eligible_products(firestore.client(), req.auth.uid)}
+
+
 def get_recommendation(req: https_fn.CallableRequest):
     """Choose one unseen product from a demographically similar user."""
     if req.auth is None:
@@ -59,6 +136,45 @@ def get_recommendation(req: https_fn.CallableRequest):
 
     current_uid = req.auth.uid
     db = firestore.client()
+
+    # A catalog item is validated against current eligibility before an event
+    # is created. Merely fetching catalog rows does not count as "shown".
+    request_data = req.data or {}
+    if not isinstance(request_data, dict):
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
+            message="Request data must be an object.",
+        )
+    requested_source = request_data.get("sourceProductId")
+    if requested_source is not None:
+        if not isinstance(requested_source, str) or not requested_source.strip():
+            raise https_fn.HttpsError(
+                code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
+                message="sourceProductId must be a non-empty string.",
+            )
+        selected = next(
+            (item for item in _eligible_products(db, current_uid)
+             if item["sourceProductId"] == requested_source),
+            None,
+        )
+        if selected is None:
+            raise https_fn.HttpsError(
+                code=https_fn.FunctionsErrorCode.NOT_FOUND,
+                message="This recommendation is no longer available.",
+            )
+        event_ref = db.collection("productEvents").document()
+        event_ref.set({
+            "eventType": "recommendation_shown",
+            "userId": current_uid,
+            "sourceProductId": selected["sourceProductId"],
+            "createdAt": firestore.SERVER_TIMESTAMP,
+            "savedAt": None,
+            "savedProductId": None,
+        })
+        return {"recommendation": {
+            "recommendationEventId": event_ref.id,
+            **{k: v for k, v in selected.items() if k != "sourceProductId"},
+        }}
 
     current_user_document = (
         db.collection("users")
