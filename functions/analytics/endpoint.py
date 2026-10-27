@@ -14,6 +14,7 @@ from . import (
     bq4_purchases_by_category,
     bq6_demographics,
     buying_patterns,
+    core_saving_features,
     dashboard_views,
     onboarding,
     product_save_attempts,
@@ -37,6 +38,9 @@ METRICS = {
     "wishlist_interactions": wishlist_interactions.compute_from_firestore,
     "buying_patterns": buying_patterns.compute_from_firestore,
     "recommendation_home_opens": recommendation_home_opens.compute_from_firestore,
+
+    # Sprint 3 - Juliana: Compare current core saving feature records.
+    "core_saving_features": core_saving_features.compute_from_firestore,
 }
 
 
