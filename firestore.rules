@@ -347,6 +347,51 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Sprint 3 BQ (money saved): what a user paid when marking one of their
+    // products as purchased, next to the price they had saved. The event is
+    // stored under the product id, so a purchase cannot be counted twice, and
+    // the saved price and category must match the purchased product itself.
+    function validPurchaseEvent(productId, data) {
+      let productPath = /databases/$(database)/documents/products/$(productId);
+      return data.keys().hasAll([
+          'userId',
+          'productId',
+          'categoryId',
+          'referencePrice',
+          'purchasePrice',
+          'platform',
+          'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'userId',
+          'productId',
+          'categoryId',
+          'referencePrice',
+          'purchasePrice',
+          'platform',
+          'createdAt'
+        ])
+        && data.userId == currentUid()
+        && data.productId == productId
+        && data.referencePrice is number
+        && data.referencePrice >= 0
+        && data.purchasePrice is number
+        && data.purchasePrice >= 0
+        && data.platform in ['android', 'ios']
+        && data.createdAt == request.time
+        && exists(productPath)
+        && get(productPath).data.ownerId == currentUid()
+        && get(productPath).data.purchased == true
+        && get(productPath).data.categoryId == data.categoryId
+        && get(productPath).data.price == data.referencePrice;
+    }
+
+    match /productPurchaseEvents/{productId} {
+      allow create: if signedIn() && validPurchaseEvent(productId, request.resource.data);
+      allow read: if isAdmin();
+      allow update, delete: if false;
+    }
+
     match /productSaveEvents/{eventId} {
       allow create: if signedIn() && validProductSaveEvent(request.resource.data);
       allow read: if isAdmin();

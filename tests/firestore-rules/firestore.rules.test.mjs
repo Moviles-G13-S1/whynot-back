@@ -700,6 +700,92 @@ describe('products', () => {
   });
 });
 
+describe('productPurchaseEvents', () => {
+  function validPurchaseEvent(overrides = {}) {
+    return {
+      userId: aliceUid,
+      productId: 'alice-product',
+      categoryId: 'fashion',
+      referencePrice: 279000,
+      purchasePrice: 250000,
+      platform: 'android',
+      createdAt: serverTimestamp(),
+      ...overrides,
+    };
+  }
+
+  async function markPurchased(productId) {
+    await testEnvironment.withSecurityRulesDisabled(async (context) => {
+      await updateDoc(doc(context.firestore(), `products/${productId}`), {
+        purchased: true,
+        purchasedAt: Timestamp.fromMillis(1_700_000_000_000),
+      });
+    });
+  }
+
+  beforeEach(async () => {
+    await seedFixtures({ includeProducts: true });
+  });
+
+  it('allows the owner to record the price paid for a purchased product', async () => {
+    const alice = firestoreFor(aliceUid, aliceEmail);
+    await markPurchased('alice-product');
+
+    await assertSucceeds(setDoc(doc(alice, 'productPurchaseEvents/alice-product'), validPurchaseEvent()));
+  });
+
+  it('rejects a product that is not purchased yet', async () => {
+    const alice = firestoreFor(aliceUid, aliceEmail);
+
+    await assertFails(setDoc(doc(alice, 'productPurchaseEvents/alice-product'), validPurchaseEvent()));
+  });
+
+  it('rejects prices or categories that do not match, foreign products and malformed events', async () => {
+    const alice = firestoreFor(aliceUid, aliceEmail);
+    const visitor = unauthenticatedFirestore();
+    await markPurchased('alice-product');
+    await markPurchased('bob-product');
+
+    const target = doc(alice, 'productPurchaseEvents/alice-product');
+    await assertFails(setDoc(doc(visitor, 'productPurchaseEvents/alice-product'), validPurchaseEvent()));
+
+    for (const overrides of [
+      { referencePrice: 1 },
+      { categoryId: 'beauty' },
+      { productId: 'bob-product' },
+      { userId: bobUid },
+      { purchasePrice: -1 },
+      { purchasePrice: '250000' },
+      { platform: 'web' },
+      { createdAt: Timestamp.fromMillis(1_700_000_000_000) },
+      { extra: true },
+    ]) {
+      await assertFails(setDoc(target, validPurchaseEvent(overrides)));
+    }
+
+    await assertFails(setDoc(
+      doc(alice, 'productPurchaseEvents/bob-product'),
+      validPurchaseEvent({ productId: 'bob-product', referencePrice: 100 }),
+    ));
+  });
+
+  it('keeps one immutable event per product, readable only by administrators', async () => {
+    const alice = firestoreFor(aliceUid, aliceEmail);
+    const admin = firestoreFor(bobUid, bobEmail, { admin: true });
+    await markPurchased('alice-product');
+
+    const event = doc(alice, 'productPurchaseEvents/alice-product');
+    await assertSucceeds(setDoc(event, validPurchaseEvent()));
+
+    await assertFails(setDoc(event, validPurchaseEvent({ purchasePrice: 1 })));
+    await assertFails(updateDoc(event, { purchasePrice: 1 }));
+    await assertFails(deleteDoc(event));
+    await assertFails(getDoc(event));
+    await assertSucceeds(getDoc(doc(admin, 'productPurchaseEvents/alice-product')));
+    await assertSucceeds(getDocs(collection(admin, 'productPurchaseEvents')));
+  });
+});
+
 describe('productSaveEvents', () => {
   it('allows a user to record their own success and failure attempts', async () => {
     const alice = firestoreFor(aliceUid, aliceEmail);
