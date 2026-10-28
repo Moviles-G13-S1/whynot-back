@@ -18,6 +18,7 @@ from . import (
     dashboard_views,
     onboarding,
     product_save_attempts,
+    purchase_savings,
     home_activation,
     wishlist_interactions,
     recommendation_home_opens,
@@ -41,6 +42,9 @@ METRICS = {
 
     # Sprint 3 - Juliana: Compare current core saving feature records.
     "core_saving_features": core_saving_features.compute_from_firestore,
+
+    # Sprint 3 - Miguel: Money users saved on the products they purchased.
+    "purchase_savings": purchase_savings.compute_from_firestore,
 }
 
 

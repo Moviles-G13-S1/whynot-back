@@ -152,9 +152,32 @@ blocks or changes the product save itself.
 Users may only create their own events; nobody may update or delete them, and
 only administrators may read them. The reason codes in use are
 `missing_name`, `missing_brand`, `invalid_price`, `negative_price`,
-`missing_wishlist` and `backend_error`. `get_admin_analytics({metric:
+`missing_wishlist`, `offline` and `backend_error`. `get_admin_analytics({metric:
 "save_attempts"})` summarizes the collection (see
 [admin-analytics.md](admin-analytics.md)).
+
+### Purchase price (`productPurchaseEvents/{productId}`)
+
+When a user marks one of their products as purchased, the mobile app asks what
+they actually paid and records it next to the price they had saved, for the
+Sprint 3 BQ "How much money have users saved on the products they marked as
+purchased?". The document id is the product id, so each purchase is recorded
+once.
+
+| Field | Type | Validation |
+|---|---|---|
+| `userId` | string | Authenticated UID; must own the product |
+| `productId` | string | Equal to the document id |
+| `categoryId` | string | Must match the product's `categoryId` |
+| `referencePrice` | number | Must match the product's `price`; zero or more |
+| `purchasePrice` | number | What the user paid; zero or more |
+| `platform` | string | `android` or `ios` |
+| `createdAt` | timestamp | Server timestamp on create |
+
+The product must already be `purchased` when the event is created. Nobody may
+update or delete an event, and only administrators may read them.
+`get_admin_analytics({metric: "purchase_savings"})` summarizes the collection
+(see [admin-analytics.md](admin-analytics.md)).
 
 ### Product saved from a recommendation
 

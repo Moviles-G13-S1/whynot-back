@@ -54,6 +54,7 @@ The metric keys are:
 | `bq6` | `{}` | Purchased-product buyers, matching the separate Kotlin BQ6 implementation |
 | `save_attempts` | `{}` | `productSaveEvents`: product-save successes and failures per platform (BQ Type 2) |
 | `buying_patterns` | `{ "months": 6 }` (6, 12, or 24) | All current `products` plus `categories`: conversion, time to purchase, when users buy, spending and repeat buyers (Sprint 3, Type *) |
+| `purchase_savings` | `{}` | `productPurchaseEvents` plus `categories`: money users saved on the products they marked as purchased (Sprint 3, Type 2) |
 
 The callable's four view calculators live in
 `functions/analytics/dashboard_views.py`. The HTML dashboard renders the
@@ -323,6 +324,64 @@ For whoever builds the dashboard view (Santiago owns the Admin Web):
 - Repeat buyers: a stacked bar or donut of `onePurchase`, `twoToThree`,
   `fourOrMore`.
 - Show `undatedPurchases` and `timeToPurchase.skipped` as small footnotes.
+
+## Money saved on purchases (Sprint 3 BQ, Type 2)
+
+Owner: Miguel Velandia. Module: `functions/analytics/purchase_savings.py`,
+tests in `tests/test_purchase_savings.py`.
+
+**Question:** How much money have users saved on the products they marked as
+purchased in the app?
+
+**Why Type 2:** it measures whether WhyNot actually helps users pay less than
+the price they saved, which tells the team whether waiting for a better price
+improves their experience and in which categories it helps most.
+
+**Data:** when a user marks a product as purchased, the mobile app asks what
+they paid and writes `productPurchaseEvents/{productId}` with the saved price
+(`referencePrice`, checked by the rules against the product) and the price paid
+(`purchasePrice`). See [data-model.md](data-model.md).
+
+```json
+{
+  "purchases": 3,
+  "buyers": 2,
+  "referenceTotal": 400.0,
+  "paidTotal": 300.0,
+  "netSaved": 100.0,
+  "grossSaved": 100.0,
+  "overspent": 0.0,
+  "savingRate": 25.0,
+  "averageSavedPerPurchase": 33.33,
+  "averageSavedPerBuyer": 50.0,
+  "savedPurchases": 2,
+  "samePricePurchases": 1,
+  "overpaidPurchases": 0,
+  "byCategory": [
+    { "categoryId": "tech", "categoryName": "Technology", "purchases": 2, "netSaved": 100.0, "savingRate": 33.33 }
+  ],
+  "byPlatform": [
+    { "platform": "android", "purchases": 3, "netSaved": 100.0 },
+    { "platform": "ios", "purchases": 0, "netSaved": 0.0 }
+  ],
+  "skipped": 0
+}
+```
+
+- The saving of one purchase is `referencePrice - purchasePrice`; it is
+  negative when the user paid more than the saved price.
+- `netSaved` (the answer) adds every saving, so overpaying offsets savings.
+  `grossSaved` and `overspent` keep both sides apart.
+- `savingRate` is `netSaved` as a percentage of `referenceTotal`; it and the
+  averages are `null` when there are no purchases.
+- `byCategory` is sorted by `netSaved` (descending), then `categoryId`;
+  `byPlatform` always lists `android` and `ios`.
+- Amounts are rounded to two decimals. Events with a missing or negative price
+  are left out and counted in `skipped`.
+
+**Limitations:** the price paid is what the user types, not a verified
+checkout; purchases marked before the event existed have no price paid; events
+are history, so deleting the product later does not remove its saving.
 
 ## Adding a BQ
 
