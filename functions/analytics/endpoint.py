@@ -22,11 +22,13 @@ from . import (
     home_activation,
     wishlist_interactions,
     recommendation_home_opens,
+    weekly_app_errors,
 )
 
 
 # metric name -> compute_from_firestore(db, params) returning JSON-safe data.
 METRICS = {
+    "weekly_app_errors": weekly_app_errors.compute_from_firestore,
     "home_activation": home_activation.compute_from_firestore,
     "bq4": bq4_purchases_by_category.compute_from_firestore,
     "bq6": bq6_demographics.compute_from_firestore,

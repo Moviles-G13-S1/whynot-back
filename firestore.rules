@@ -467,6 +467,33 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Immutable technical events. No raw exception messages, emails or stacks.
+    match /applicationErrorEvents/{eventId} {
+      allow create: if signedIn()
+        && eventId.matches('^[0-9a-f]{32}$')
+        && request.resource.data.keys().hasAll(['eventId', 'schemaVersion', 'userId', 'platform', 'feature', 'operation', 'code', 'source', 'occurredAt', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['eventId', 'schemaVersion', 'userId', 'platform', 'feature', 'operation', 'code', 'source', 'occurredAt', 'createdAt'])
+        && request.resource.data.eventId == eventId
+        && request.resource.data.schemaVersion is int
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.userId == currentUid()
+        && request.resource.data.platform in ['ios', 'android', 'web']
+        && request.resource.data.feature in ['auth', 'home', 'profile', 'runtime']
+        && request.resource.data.operation is string
+        && request.resource.data.operation.matches('^[a-z_]{1,48}$')
+        && request.resource.data.code in ['network', 'permission', 'unauthenticated', 'not_found', 'rate_limited', 'timeout', 'unexpected']
+        && request.resource.data.source in ['operation', 'framework', 'platform']
+        && request.resource.data.occurredAt is timestamp
+        && request.resource.data.occurredAt <= request.time + duration.value(5, 'm')
+        && request.resource.data.createdAt == request.time;
+      // Exact owner reads permit idempotent retry transactions after a lost ACK.
+      allow get: if isAdmin() || (signedIn() && (
+        !exists(/databases/$(database)/documents/applicationErrorEvents/$(eventId))
+        || resource.data.userId == currentUid()));
+      allow list: if isAdmin();
+      allow update, delete: if false;
+    }
+
     match /processedEvents/{document=**} {
       allow read, write: if false;
     }
