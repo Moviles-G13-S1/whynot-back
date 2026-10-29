@@ -15,6 +15,7 @@ from . import (
     bq6_demographics,
     buying_patterns,
     core_saving_features,
+    manual_product_usage,
     dashboard_views,
     onboarding,
     product_save_attempts,
@@ -28,6 +29,7 @@ from . import (
 
 # metric name -> compute_from_firestore(db, params) returning JSON-safe data.
 METRICS = {
+    "manual_product_usage": manual_product_usage.compute_from_firestore,
     "weekly_app_errors": weekly_app_errors.compute_from_firestore,
     "home_activation": home_activation.compute_from_firestore,
     "bq4": bq4_purchases_by_category.compute_from_firestore,
