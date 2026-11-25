@@ -16,6 +16,7 @@ from . import (
     buying_patterns,
     core_saving_features,
     manual_product_usage,
+    nearby_detail_opens,
     dashboard_views,
     onboarding,
     product_save_attempts,
@@ -49,6 +50,9 @@ METRICS = {
 
     # Sprint 3 - Miguel: Money users saved on the products they purchased.
     "purchase_savings": purchase_savings.compute_from_firestore,
+
+    # Sprint 4 - Juan Felipe: Distinct users opening the nearby store detail per week.
+    "nearby_detail_opens": nearby_detail_opens.compute_from_firestore,
 }
 
 
