@@ -24,6 +24,7 @@ from . import (
     home_activation,
     wishlist_interactions,
     recommendation_home_opens,
+    store_domains,
     weekly_app_errors,
 )
 
@@ -53,6 +54,9 @@ METRICS = {
 
     # Sprint 4 - Juan Felipe: Distinct users opening the nearby store detail per week.
     "nearby_detail_opens": nearby_detail_opens.compute_from_firestore,
+
+    # Sprint 4 - Santiago: Which online stores appear most in saved products.
+    "store_domains": store_domains.compute_from_firestore,
 }
 
 
