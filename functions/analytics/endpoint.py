@@ -23,6 +23,7 @@ from . import (
     home_activation,
     wishlist_interactions,
     recommendation_home_opens,
+    store_domains,
     weekly_app_errors,
 )
 
@@ -49,6 +50,9 @@ METRICS = {
 
     # Sprint 3 - Miguel: Money users saved on the products they purchased.
     "purchase_savings": purchase_savings.compute_from_firestore,
+
+    # Sprint 4 - Santiago: Which online stores appear most in saved products.
+    "store_domains": store_domains.compute_from_firestore,
 }
 
 

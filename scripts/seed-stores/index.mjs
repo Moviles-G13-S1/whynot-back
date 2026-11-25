@@ -39,6 +39,141 @@ const stores = new Map([
     },
   ],
 
+  [
+    'arturo-calle-titan-plaza',
+    {
+      name: 'Arturo Calle - Titán Plaza',
+      address: 'Avenida Boyacá #80-94, Bogotá',
+      latitude: 4.69450,
+      longitude: -74.08660,
+      categoryIds: [
+        'fashion',
+      ],
+      websiteUrl: 'https://www.arturocalle.com/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'studio-f-santafe',
+    {
+      name: 'Studio F - Santafé',
+      address: 'Calle 185 #45-03, Bogotá',
+      latitude: 4.76260,
+      longitude: -74.04590,
+      categoryIds: [
+        'fashion',
+      ],
+      websiteUrl: 'https://www.studiof.com.co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'bershka-gran-estacion',
+    {
+      name: 'Bershka - Gran Estación',
+      address: 'Avenida Calle 26 #62-47, Bogotá',
+      latitude: 4.64760,
+      longitude: -74.10180,
+      categoryIds: [
+        'fashion',
+      ],
+      websiteUrl: 'https://www.bershka.com/co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'adidas-centro-mayor',
+    {
+      name: 'adidas - Centro Mayor',
+      address: 'Calle 38A Sur #34D-50, Bogotá',
+      latitude: 4.59270,
+      longitude: -74.12440,
+      categoryIds: [
+        'fashion',
+      ],
+      websiteUrl: 'https://www.adidas.co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'golden-goose-andino',
+    {
+      name: 'Golden Goose - Andino',
+      address: 'Carrera 11 #82-71, Bogotá',
+      latitude: 4.66691,
+      longitude: -74.05312,
+      categoryIds: [
+        'fashion',
+      ],
+      websiteUrl: 'https://www.goldengoose.com/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'massimo-dutti-andino',
+    {
+      name: 'Massimo Dutti - Andino',
+      address: 'Carrera 11 #82-71, Bogotá',
+      latitude: 4.66691,
+      longitude: -74.05312,
+      categoryIds: [
+        'fashion',
+      ],
+      websiteUrl: 'https://www.massimodutti.com/co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'mango-unicentro',
+    {
+      name: 'Mango - Unicentro',
+      address: 'Avenida Carrera 15 #124-30, Bogotá',
+      latitude: 4.70220,
+      longitude: -74.04150,
+      categoryIds: [
+        'fashion',
+      ],
+      websiteUrl: 'https://shop.mango.com/co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'tennis-plaza-americas',
+    {
+      name: 'Tennis - Plaza de las Américas',
+      address: 'Carrera 71D #6-94 Sur, Bogotá',
+      latitude: 4.61850,
+      longitude: -74.13550,
+      categoryIds: [
+        'fashion',
+      ],
+      websiteUrl: 'https://www.tennis.com.co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'koaj-centro-mayor',
+    {
+      name: 'Koaj - Centro Mayor',
+      address: 'Calle 38A Sur #34D-50, Bogotá',
+      latitude: 4.59270,
+      longitude: -74.12440,
+      categoryIds: [
+        'fashion',
+      ],
+      websiteUrl: 'https://www.koaj.co/',
+      imageUrl: '',
+    },
+  ],
+
   // -------------------------------------------------------------------------
   // Beauty
   // -------------------------------------------------------------------------
@@ -69,6 +204,111 @@ const stores = new Map([
         'beauty',
       ],
       websiteUrl: 'https://www.lotodelsur.com/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'mac-cosmetics-andino',
+    {
+      name: 'MAC Cosmetics - Andino',
+      address: 'Carrera 11 #82-71, Bogotá',
+      latitude: 4.66691,
+      longitude: -74.05312,
+      categoryIds: [
+        'beauty',
+      ],
+      websiteUrl: 'https://www.maccosmetics.com.co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'cruz-verde-titan-plaza',
+    {
+      name: 'Cruz Verde - Titán Plaza',
+      address: 'Avenida Boyacá #80-94, Bogotá',
+      latitude: 4.69450,
+      longitude: -74.08660,
+      categoryIds: [
+        'beauty',
+      ],
+      websiteUrl: 'https://www.cruzverde.com.co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'farmatodo-colina',
+    {
+      name: 'Farmatodo - Parque La Colina',
+      address: 'Carrera 58D #146-51, Bogotá',
+      latitude: 4.73300,
+      longitude: -74.06600,
+      categoryIds: [
+        'beauty',
+      ],
+      websiteUrl: 'https://www.farmatodo.com.co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'loto-del-sur-santafe',
+    {
+      name: 'Loto del Sur - Santafé',
+      address: 'Calle 185 #45-03, Bogotá',
+      latitude: 4.76260,
+      longitude: -74.04590,
+      categoryIds: [
+        'beauty',
+      ],
+      websiteUrl: 'https://www.lotodelsur.com/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'loccitane-andino',
+    {
+      name: 'L\'Occitane - Andino',
+      address: 'Carrera 11 #82-71, Bogotá',
+      latitude: 4.66691,
+      longitude: -74.05312,
+      categoryIds: [
+        'beauty',
+      ],
+      websiteUrl: 'https://www.loccitane.com/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'bath-and-body-works-santafe',
+    {
+      name: 'Bath & Body Works - Santafé',
+      address: 'Calle 185 #45-03, Bogotá',
+      latitude: 4.76260,
+      longitude: -74.04590,
+      categoryIds: [
+        'beauty',
+      ],
+      websiteUrl: 'https://www.bathandbodyworks.com/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'cruz-verde-plaza-americas',
+    {
+      name: 'Cruz Verde - Plaza de las Américas',
+      address: 'Carrera 71D #6-94 Sur, Bogotá',
+      latitude: 4.61850,
+      longitude: -74.13550,
+      categoryIds: [
+        'beauty',
+      ],
+      websiteUrl: 'https://www.cruzverde.com.co/',
       imageUrl: '',
     },
   ],
@@ -107,6 +347,111 @@ const stores = new Map([
     },
   ],
 
+  [
+    'samsung-titan-plaza',
+    {
+      name: 'Samsung - Titán Plaza',
+      address: 'Avenida Boyacá #80-94, Bogotá',
+      latitude: 4.69450,
+      longitude: -74.08660,
+      categoryIds: [
+        'technology',
+      ],
+      websiteUrl: 'https://www.samsung.com/co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'ktronix-santafe',
+    {
+      name: 'Ktronix - Santafé',
+      address: 'Calle 185 #45-03, Bogotá',
+      latitude: 4.76260,
+      longitude: -74.04590,
+      categoryIds: [
+        'technology',
+      ],
+      websiteUrl: 'https://www.ktronix.com/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'ktronix-gran-estacion',
+    {
+      name: 'Ktronix - Gran Estación',
+      address: 'Avenida Calle 26 #62-47, Bogotá',
+      latitude: 4.64760,
+      longitude: -74.10180,
+      categoryIds: [
+        'technology',
+      ],
+      websiteUrl: 'https://www.ktronix.com/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'alkomprar-centro-mayor',
+    {
+      name: 'Alkomprar - Centro Mayor',
+      address: 'Calle 38A Sur #34D-50, Bogotá',
+      latitude: 4.59270,
+      longitude: -74.12440,
+      categoryIds: [
+        'technology',
+      ],
+      websiteUrl: 'https://www.alkomprar.com/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'ishop-andino',
+    {
+      name: 'iShop - Andino',
+      address: 'Carrera 11 #82-71, Bogotá',
+      latitude: 4.66691,
+      longitude: -74.05312,
+      categoryIds: [
+        'technology',
+      ],
+      websiteUrl: '',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'xiaomi-gran-estacion',
+    {
+      name: 'Xiaomi - Gran Estación',
+      address: 'Avenida Calle 26 #62-47, Bogotá',
+      latitude: 4.64760,
+      longitude: -74.10180,
+      categoryIds: [
+        'technology',
+      ],
+      websiteUrl: 'https://www.mi.com/co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'alkomprar-plaza-americas',
+    {
+      name: 'Alkomprar - Plaza de las Américas',
+      address: 'Carrera 71D #6-94 Sur, Bogotá',
+      latitude: 4.61850,
+      longitude: -74.13550,
+      categoryIds: [
+        'technology',
+      ],
+      websiteUrl: 'https://www.alkomprar.com/',
+      imageUrl: '',
+    },
+  ],
+
   // -------------------------------------------------------------------------
   // Home
   // -------------------------------------------------------------------------
@@ -141,6 +486,111 @@ const stores = new Map([
     },
   ],
 
+  [
+    'tugo-titan-plaza',
+    {
+      name: 'Tugó - Titán Plaza',
+      address: 'Avenida Boyacá #80-94, Bogotá',
+      latitude: 4.69450,
+      longitude: -74.08660,
+      categoryIds: [
+        'home',
+      ],
+      websiteUrl: 'https://www.tugo.com.co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'tugo-santafe',
+    {
+      name: 'Tugó - Santafé',
+      address: 'Calle 185 #45-03, Bogotá',
+      latitude: 4.76260,
+      longitude: -74.04590,
+      categoryIds: [
+        'home',
+      ],
+      websiteUrl: 'https://www.tugo.com.co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'tugo-gran-estacion',
+    {
+      name: 'Tugó - Gran Estación',
+      address: 'Avenida Calle 26 #62-47, Bogotá',
+      latitude: 4.64760,
+      longitude: -74.10180,
+      categoryIds: [
+        'home',
+      ],
+      websiteUrl: 'https://www.tugo.com.co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'home-sentry-andino',
+    {
+      name: 'Home Sentry - Andino',
+      address: 'Carrera 11 #82-71, Bogotá',
+      latitude: 4.66691,
+      longitude: -74.05312,
+      categoryIds: [
+        'home',
+      ],
+      websiteUrl: '',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'zara-home-andino',
+    {
+      name: 'Zara Home - Andino',
+      address: 'Carrera 11 #82-71, Bogotá',
+      latitude: 4.66691,
+      longitude: -74.05312,
+      categoryIds: [
+        'home',
+      ],
+      websiteUrl: 'https://www.zarahome.com/co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'home-sentry-santafe',
+    {
+      name: 'Home Sentry - Santafé',
+      address: 'Calle 185 #45-03, Bogotá',
+      latitude: 4.76260,
+      longitude: -74.04590,
+      categoryIds: [
+        'home',
+      ],
+      websiteUrl: '',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'tugo-plaza-americas',
+    {
+      name: 'Tugó - Plaza de las Américas',
+      address: 'Carrera 71D #6-94 Sur, Bogotá',
+      latitude: 4.61850,
+      longitude: -74.13550,
+      categoryIds: [
+        'home',
+      ],
+      websiteUrl: 'https://www.tugo.com.co/',
+      imageUrl: '',
+    },
+  ],
+
   // -------------------------------------------------------------------------
   // Accessories
   // -------------------------------------------------------------------------
@@ -167,6 +617,111 @@ const stores = new Map([
       address: 'Avenida Carrera 15 #124-30, Bogotá',
       latitude: 4.70220,
       longitude: -74.04150,
+      categoryIds: [
+        'accessories',
+      ],
+      websiteUrl: 'https://co.pandora.net/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'swarovski-andino',
+    {
+      name: 'Swarovski - Andino',
+      address: 'Carrera 11 #82-71, Bogotá',
+      latitude: 4.66691,
+      longitude: -74.05312,
+      categoryIds: [
+        'accessories',
+      ],
+      websiteUrl: 'https://www.swarovski.com/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'pandora-santafe',
+    {
+      name: 'Pandora - Santafé',
+      address: 'Calle 185 #45-03, Bogotá',
+      latitude: 4.76260,
+      longitude: -74.04590,
+      categoryIds: [
+        'accessories',
+      ],
+      websiteUrl: 'https://co.pandora.net/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'velez-titan-plaza',
+    {
+      name: 'Vélez - Titán Plaza',
+      address: 'Avenida Boyacá #80-94, Bogotá',
+      latitude: 4.69450,
+      longitude: -74.08660,
+      categoryIds: [
+        'accessories',
+      ],
+      websiteUrl: 'https://www.velez.com.co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'velez-centro-mayor',
+    {
+      name: 'Vélez - Centro Mayor',
+      address: 'Calle 38A Sur #34D-50, Bogotá',
+      latitude: 4.59270,
+      longitude: -74.12440,
+      categoryIds: [
+        'accessories',
+      ],
+      websiteUrl: 'https://www.velez.com.co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'michael-kors-andino',
+    {
+      name: 'Michael Kors - Andino',
+      address: 'Carrera 11 #82-71, Bogotá',
+      latitude: 4.66691,
+      longitude: -74.05312,
+      categoryIds: [
+        'accessories',
+      ],
+      websiteUrl: '',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'swatch-unicentro',
+    {
+      name: 'Swatch - Unicentro',
+      address: 'Avenida Carrera 15 #124-30, Bogotá',
+      latitude: 4.70220,
+      longitude: -74.04150,
+      categoryIds: [
+        'accessories',
+      ],
+      websiteUrl: 'https://www.swatch.com/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'pandora-titan-plaza',
+    {
+      name: 'Pandora - Titán Plaza',
+      address: 'Avenida Boyacá #80-94, Bogotá',
+      latitude: 4.69450,
+      longitude: -74.08660,
       categoryIds: [
         'accessories',
       ],
@@ -209,6 +764,111 @@ const stores = new Map([
     },
   ],
 
+  [
+    'totto-gran-estacion',
+    {
+      name: 'Totto - Gran Estación',
+      address: 'Avenida Calle 26 #62-47, Bogotá',
+      latitude: 4.64760,
+      longitude: -74.10180,
+      categoryIds: [
+        'travel',
+      ],
+      websiteUrl: 'https://www.totto.com/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'totto-plaza-americas',
+    {
+      name: 'Totto - Plaza de las Américas',
+      address: 'Carrera 71D #6-94 Sur, Bogotá',
+      latitude: 4.61850,
+      longitude: -74.13550,
+      categoryIds: [
+        'travel',
+      ],
+      websiteUrl: 'https://www.totto.com/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'samsonite-santafe',
+    {
+      name: 'Samsonite - Santafé',
+      address: 'Calle 185 #45-03, Bogotá',
+      latitude: 4.76260,
+      longitude: -74.04590,
+      categoryIds: [
+        'travel',
+      ],
+      websiteUrl: 'https://www.samsonite.com.co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'samsonite-titan-plaza',
+    {
+      name: 'Samsonite - Titán Plaza',
+      address: 'Avenida Boyacá #80-94, Bogotá',
+      latitude: 4.69450,
+      longitude: -74.08660,
+      categoryIds: [
+        'travel',
+      ],
+      websiteUrl: 'https://www.samsonite.com.co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'tumi-andino',
+    {
+      name: 'TUMI - Andino',
+      address: 'Carrera 11 #82-71, Bogotá',
+      latitude: 4.66691,
+      longitude: -74.05312,
+      categoryIds: [
+        'travel',
+      ],
+      websiteUrl: 'https://www.tumi.com/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'totto-unicentro',
+    {
+      name: 'Totto - Unicentro',
+      address: 'Avenida Carrera 15 #124-30, Bogotá',
+      latitude: 4.70220,
+      longitude: -74.04150,
+      categoryIds: [
+        'travel',
+      ],
+      websiteUrl: 'https://www.totto.com/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'totto-hayuelos',
+    {
+      name: 'Totto - Hayuelos',
+      address: 'Calle 20 #82-52, Bogotá',
+      latitude: 4.66330,
+      longitude: -74.13100,
+      categoryIds: [
+        'travel',
+      ],
+      websiteUrl: 'https://www.totto.com/',
+      imageUrl: '',
+    },
+  ],
+
   // -------------------------------------------------------------------------
   // Gifts
   // -------------------------------------------------------------------------
@@ -243,6 +903,111 @@ const stores = new Map([
     },
   ],
 
+  [
+    'panamericana-unicentro',
+    {
+      name: 'Panamericana - Unicentro',
+      address: 'Avenida Carrera 15 #124-30, Bogotá',
+      latitude: 4.70220,
+      longitude: -74.04150,
+      categoryIds: [
+        'gifts',
+      ],
+      websiteUrl: 'https://www.panamericana.com.co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'panamericana-gran-estacion',
+    {
+      name: 'Panamericana - Gran Estación',
+      address: 'Avenida Calle 26 #62-47, Bogotá',
+      latitude: 4.64760,
+      longitude: -74.10180,
+      categoryIds: [
+        'gifts',
+      ],
+      websiteUrl: 'https://www.panamericana.com.co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'pepe-ganga-centro-mayor',
+    {
+      name: 'Pepe Ganga - Centro Mayor',
+      address: 'Calle 38A Sur #34D-50, Bogotá',
+      latitude: 4.59270,
+      longitude: -74.12440,
+      categoryIds: [
+        'gifts',
+      ],
+      websiteUrl: 'https://www.pepeganga.com/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'miniso-titan-plaza',
+    {
+      name: 'Miniso - Titán Plaza',
+      address: 'Avenida Boyacá #80-94, Bogotá',
+      latitude: 4.69450,
+      longitude: -74.08660,
+      categoryIds: [
+        'gifts',
+      ],
+      websiteUrl: 'https://www.miniso.co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'miniso-gran-estacion',
+    {
+      name: 'Miniso - Gran Estación',
+      address: 'Avenida Calle 26 #62-47, Bogotá',
+      latitude: 4.64760,
+      longitude: -74.10180,
+      categoryIds: [
+        'gifts',
+      ],
+      websiteUrl: 'https://www.miniso.co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'panamericana-santafe',
+    {
+      name: 'Panamericana - Santafé',
+      address: 'Calle 185 #45-03, Bogotá',
+      latitude: 4.76260,
+      longitude: -74.04590,
+      categoryIds: [
+        'gifts',
+      ],
+      websiteUrl: 'https://www.panamericana.com.co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'pepe-ganga-titan-plaza',
+    {
+      name: 'Pepe Ganga - Titán Plaza',
+      address: 'Avenida Boyacá #80-94, Bogotá',
+      latitude: 4.69450,
+      longitude: -74.08660,
+      categoryIds: [
+        'gifts',
+      ],
+      websiteUrl: 'https://www.pepeganga.com/',
+      imageUrl: '',
+    },
+  ],
+
   // -------------------------------------------------------------------------
   // Other
   // -------------------------------------------------------------------------
@@ -273,6 +1038,109 @@ const stores = new Map([
         'other',
       ],
       websiteUrl: 'https://www.exito.com/',
+      imageUrl: '',
+    },
+  ],
+  [
+    'exito-colina',
+    {
+      name: 'Éxito - Parque La Colina',
+      address: 'Carrera 58D #146-51, Bogotá',
+      latitude: 4.73300,
+      longitude: -74.06600,
+      categoryIds: [
+        'other',
+      ],
+      websiteUrl: 'https://www.exito.com/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'falabella-santafe',
+    {
+      name: 'Falabella - Santafé',
+      address: 'Calle 185 #45-03, Bogotá',
+      latitude: 4.76260,
+      longitude: -74.04590,
+      categoryIds: [
+        'other',
+      ],
+      websiteUrl: 'https://www.falabella.com.co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'falabella-titan-plaza',
+    {
+      name: 'Falabella - Titán Plaza',
+      address: 'Avenida Boyacá #80-94, Bogotá',
+      latitude: 4.69450,
+      longitude: -74.08660,
+      categoryIds: [
+        'other',
+      ],
+      websiteUrl: 'https://www.falabella.com.co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'jumbo-hayuelos',
+    {
+      name: 'Jumbo - Hayuelos',
+      address: 'Calle 20 #82-52, Bogotá',
+      latitude: 4.66330,
+      longitude: -74.13100,
+      categoryIds: [
+        'other',
+      ],
+      websiteUrl: 'https://www.tiendasjumbo.co/',
+      imageUrl: '',
+    },
+  ],
+  [
+    'falabella-andino',
+    {
+      name: 'Falabella - Andino',
+      address: 'Carrera 11 #82-71, Bogotá',
+      latitude: 4.66691,
+      longitude: -74.05312,
+      categoryIds: [
+        'other',
+      ],
+      websiteUrl: 'https://www.falabella.com.co/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'exito-centro-mayor',
+    {
+      name: 'Éxito - Centro Mayor',
+      address: 'Calle 38A Sur #34D-50, Bogotá',
+      latitude: 4.59270,
+      longitude: -74.12440,
+      categoryIds: [
+        'other',
+      ],
+      websiteUrl: 'https://www.exito.com/',
+      imageUrl: '',
+    },
+  ],
+
+  [
+    'jumbo-titan-plaza',
+    {
+      name: 'Jumbo - Titán Plaza',
+      address: 'Avenida Boyacá #80-94, Bogotá',
+      latitude: 4.69450,
+      longitude: -74.08660,
+      categoryIds: [
+        'other',
+      ],
+      websiteUrl: 'https://www.tiendasjumbo.co/',
       imageUrl: '',
     },
   ],
