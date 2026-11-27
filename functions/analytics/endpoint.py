@@ -28,6 +28,7 @@ from . import (
     unpurchased_over_30_days,
     weekly_app_errors,
     errors_vs_saved_products,
+    home_load_time,
 )
 
 
@@ -64,6 +65,9 @@ METRICS = {
     
     # Sprint 4 - Juliana: Relationship between errors and saved products.
     "errors_vs_saved_products": errors_vs_saved_products.compute_from_firestore,
+
+    # Sprint 4 - Miguel: Average Home load time per platform (Type 1).
+    "home_load_time": home_load_time.compute_from_firestore,
 }
 
 

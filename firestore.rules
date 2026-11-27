@@ -173,6 +173,19 @@ service cloud.firestore {
 
     // One product-save attempt from a mobile client (BQ Type 2). Success has
     // no reason; a failure carries a short machine-readable reason code.
+    // Sprint 4 BQ (Miguel, Type 1): one Home load measured by the app.
+    function validScreenLoadEvent(data) {
+      return data.keys().hasAll(['userId', 'screen', 'durationMs', 'platform', 'createdAt'])
+        && data.keys().hasOnly(['userId', 'screen', 'durationMs', 'platform', 'createdAt'])
+        && data.userId == currentUid()
+        && data.screen in ['home']
+        && data.durationMs is int
+        && data.durationMs > 0
+        && data.durationMs <= 120000
+        && data.platform in ['android', 'ios']
+        && data.createdAt == request.time;
+    }
+
     function validProductSaveEvent(data) {
       return data.keys().hasAll([
           'userId',
@@ -405,6 +418,14 @@ service cloud.firestore {
 
     match /productSaveEvents/{eventId} {
       allow create: if signedIn() && validProductSaveEvent(request.resource.data);
+      allow read: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // Sprint 4 BQ (Miguel): average Home load time per platform. Create-only,
+    // own user, server time; only admins read them.
+    match /screenLoadEvents/{eventId} {
+      allow create: if signedIn() && validScreenLoadEvent(request.resource.data);
       allow read: if isAdmin();
       allow update, delete: if false;
     }

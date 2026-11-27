@@ -81,6 +81,17 @@ function validProduct(overrides = {}) {
   };
 }
 
+function validScreenLoadEvent(overrides = {}) {
+  return {
+    userId: aliceUid,
+    screen: 'home',
+    durationMs: 2400,
+    platform: 'android',
+    createdAt: serverTimestamp(),
+    ...overrides,
+  };
+}
+
 function validSaveEvent(overrides = {}) {
   return {
     userId: aliceUid,
@@ -838,6 +849,49 @@ describe('productSaveEvents', () => {
     await assertFails(updateDoc(doc(alice, 'productSaveEvents/mine'), { outcome: 'failure' }));
     await assertFails(deleteDoc(doc(alice, 'productSaveEvents/mine')));
     await assertFails(deleteDoc(doc(admin, 'productSaveEvents/mine')));
+  });
+});
+
+describe('screenLoadEvents', () => {
+  it('allows a user to record their own Home loads from either app', async () => {
+    const alice = firestoreFor(aliceUid, aliceEmail);
+
+    await assertSucceeds(setDoc(doc(alice, 'screenLoadEvents/a'), validScreenLoadEvent()));
+    await assertSucceeds(setDoc(doc(alice, 'screenLoadEvents/i'), validScreenLoadEvent({ platform: 'ios' })));
+  });
+
+  it('rejects foreign, malformed, and unauthenticated loads', async () => {
+    const alice = firestoreFor(aliceUid, aliceEmail);
+    const visitor = unauthenticatedFirestore();
+
+    await assertFails(setDoc(doc(visitor, 'screenLoadEvents/e'), validScreenLoadEvent()));
+
+    for (const overrides of [
+      { userId: bobUid },
+      { screen: 'search' },
+      { durationMs: 0 },
+      { durationMs: -10 },
+      { durationMs: 120001 },
+      { durationMs: 1500.5 },
+      { durationMs: '1500' },
+      { platform: 'web' },
+      { createdAt: Timestamp.fromMillis(1_700_000_000_000) },
+      { extra: true },
+    ]) {
+      await assertFails(setDoc(doc(alice, 'screenLoadEvents/e'), validScreenLoadEvent(overrides)));
+    }
+  });
+
+  it('lets only administrators read loads and nobody edit them', async () => {
+    const alice = firestoreFor(aliceUid, aliceEmail);
+    const admin = firestoreFor(bobUid, bobEmail, { admin: true });
+
+    await assertSucceeds(setDoc(doc(alice, 'screenLoadEvents/mine'), validScreenLoadEvent()));
+
+    await assertFails(getDoc(doc(alice, 'screenLoadEvents/mine')));
+    await assertSucceeds(getDocs(collection(admin, 'screenLoadEvents')));
+    await assertFails(updateDoc(doc(alice, 'screenLoadEvents/mine'), { durationMs: 1 }));
+    await assertFails(deleteDoc(doc(admin, 'screenLoadEvents/mine')));
   });
 });
 
