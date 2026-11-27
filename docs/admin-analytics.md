@@ -383,6 +383,42 @@ they paid and writes `productPurchaseEvents/{productId}` with the saved price
 checkout; purchases marked before the event existed have no price paid; events
 are history, so deleting the product later does not remove its saving.
 
+## Home load time (Sprint 4 BQ, Type 1)
+
+Owner: Miguel Velandia. Module: `functions/analytics/home_load_time.py`, tests
+in `tests/test_home_load_time.py`.
+
+**Question:** What is the average loading time of the Home screen per platform?
+
+**Why Type 1:** it is app telemetry (performance), not user behaviour. It is
+also the number the Sprint 4 Home micro-optimization is judged by.
+
+**Data:** `screenLoadEvents` with `screen == "home"` (see
+[data-model.md](data-model.md)). Read with a single-field equality filter, so no
+composite index is needed. `params.days` (7 or 30) limits the window; without
+it every event counts.
+
+```json
+{
+  "screen": "home",
+  "days": null,
+  "overall": { "loads": 10, "averageMs": 2759.0, "medianMs": 2364, "p90Ms": 4720, "fastestMs": 1754, "slowestMs": 4720 },
+  "platforms": [
+    { "platform": "android", "loads": 10, "averageMs": 2759.0, "medianMs": 2364, "p90Ms": 4720, "fastestMs": 1754, "slowestMs": 4720 },
+    { "platform": "ios", "loads": 0, "averageMs": null, "medianMs": null, "p90Ms": null, "fastestMs": null, "slowestMs": null }
+  ],
+  "fastestPlatform": null,
+  "ignoredEvents": 0
+}
+```
+
+- `averageMs` per platform answers the BQ; `medianMs` and `p90Ms` show the
+  typical and the slow loads, since one cold Cloud Function or slow GPS fix
+  pulls the average up.
+- `fastestPlatform` is null until both platforms have loads.
+- Events with an unknown screen or platform, or a duration outside 1–120000
+  ms, are counted in `ignoredEvents` and left out.
+
 ## Adding a BQ
 
 1. Create `functions/analytics/bqN_<name>.py` with

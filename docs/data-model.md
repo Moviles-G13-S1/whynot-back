@@ -135,6 +135,27 @@ A manual save does not create a recommendation event and is excluded from BQ3.
 for BQ3 is represented by the backend recommendation-save flow rather than by
 adding a required field to every product.
 
+### Home load time (`screenLoadEvents/{eventId}`)
+
+Sprint 4 BQ (Miguel Velandia, Type 1): "What is the average loading time of the
+Home screen per platform?". Each mobile client writes one event every time Home
+finishes loading while online: from opening Home until its nearby store and
+recommendation have loaded, measured with a monotonic clock. Recording never
+delays Home; offline it waits in Firestore's queue.
+
+| Field | Type | Validation |
+|---|---|---|
+| `userId` | string | Authenticated UID |
+| `screen` | string | `home` |
+| `durationMs` | int | 1–120000 |
+| `platform` | string | `android` or `ios` |
+| `createdAt` | timestamp | Server timestamp on create |
+
+Users may only create their own events; nobody may update or delete them, and
+only administrators may read them. `get_admin_analytics({metric:
+"home_load_time"})` summarizes the collection (see
+[admin-analytics.md](admin-analytics.md)).
+
 ### Product-save attempts (`productSaveEvents/{eventId}`)
 
 Every attempt to save a product from a mobile client also records one event,
