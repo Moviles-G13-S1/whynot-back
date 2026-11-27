@@ -26,6 +26,7 @@ from . import (
     recommendation_home_opens,
     store_domains,
     weekly_app_errors,
+    errors_vs_saved_products,
 )
 
 
@@ -57,6 +58,9 @@ METRICS = {
 
     # Sprint 4 - Santiago: Which online stores appear most in saved products.
     "store_domains": store_domains.compute_from_firestore,
+    
+    # Sprint 4 - Juliana: Relationship between errors and saved products.
+    "errors_vs_saved_products": errors_vs_saved_products.compute_from_firestore,
 }
 
 
