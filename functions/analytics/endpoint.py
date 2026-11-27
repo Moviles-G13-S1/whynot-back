@@ -25,6 +25,7 @@ from . import (
     wishlist_interactions,
     recommendation_home_opens,
     store_domains,
+    unpurchased_over_30_days,
     weekly_app_errors,
 )
 
@@ -57,6 +58,7 @@ METRICS = {
 
     # Sprint 4 - Santiago: Which online stores appear most in saved products.
     "store_domains": store_domains.compute_from_firestore,
+    "unpurchased_over_30_days": unpurchased_over_30_days.compute_from_firestore,
 }
 
 
