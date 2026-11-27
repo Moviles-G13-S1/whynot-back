@@ -27,6 +27,7 @@ from . import (
     store_domains,
     unpurchased_over_30_days,
     weekly_app_errors,
+    errors_vs_saved_products,
 )
 
 
@@ -58,7 +59,11 @@ METRICS = {
 
     # Sprint 4 - Santiago: Which online stores appear most in saved products.
     "store_domains": store_domains.compute_from_firestore,
+    # Sprint 4 - Martin: Count prodcuts still unpurchsed after more than 30 days.
     "unpurchased_over_30_days": unpurchased_over_30_days.compute_from_firestore,
+    
+    # Sprint 4 - Juliana: Relationship between errors and saved products.
+    "errors_vs_saved_products": errors_vs_saved_products.compute_from_firestore,
 }
 
 
