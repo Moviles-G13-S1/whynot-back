@@ -47,3 +47,32 @@ describe('profile photo storage', () => {
     await assertSucceeds(uploadBytes(photo(alice), jpeg, { contentType: 'image/jpeg' }));
   });
 });
+
+describe('product and wishlist picture storage', () => {
+  // Juan Felipe Saenz: pictures picked from the gallery for products and wishlists.
+  for (const folder of ['productPhotos', 'wishlistPhotos']) {
+    const target = `${folder}/alice/1732600000000-0a1b2c3d.jpg`;
+
+    it(`${folder}: only the owner uploads, reads and deletes`, async () => {
+      const alice = env.authenticatedContext('alice');
+      const bob = env.authenticatedContext('bob');
+      const guest = env.unauthenticatedContext();
+      await assertFails(uploadBytes(photo(bob, target), jpeg, { contentType: 'image/jpeg' }));
+      await assertFails(uploadBytes(photo(guest, target), jpeg, { contentType: 'image/jpeg' }));
+      await assertSucceeds(uploadBytes(photo(alice, target), jpeg, { contentType: 'image/jpeg' }));
+      await assertSucceeds(getBytes(photo(alice, target)));
+      await assertFails(getBytes(photo(bob, target)));
+      await assertFails(deleteObject(photo(bob, target)));
+      await assertSucceeds(deleteObject(photo(alice, target)));
+    });
+
+    it(`${folder}: rejects other types, big files, and bad names`, async () => {
+      const alice = env.authenticatedContext('alice');
+      await assertFails(uploadBytes(photo(alice, target), jpeg, { contentType: 'image/png' }));
+      await assertFails(uploadBytes(photo(alice, target), new Uint8Array(5 * 1024 * 1024 + 1), { contentType: 'image/jpeg' }));
+      await assertFails(uploadBytes(photo(alice, `${folder}/alice/picture.jpg`), jpeg, { contentType: 'image/jpeg' }));
+      await assertFails(uploadBytes(photo(alice, `${folder}/alice/1-0a1b2c3d.png`), jpeg, { contentType: 'image/jpeg' }));
+      await assertSucceeds(uploadBytes(photo(alice, target), jpeg, { contentType: 'image/jpeg' }));
+    });
+  }
+});

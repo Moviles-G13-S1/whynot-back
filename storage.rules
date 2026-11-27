@@ -2,6 +2,17 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
+    function isOwnerPicture(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function isPictureUpload(fileName) {
+      return fileName.matches('^[0-9]+-[0-9a-f]{8}\\.jpg$')
+        && request.resource.size > 0
+        && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType == 'image/jpeg';
+    }
+
     // Santiago Casasbuenas: Restrict profile images to their authenticated owner.
     match /profilePhotos/{uid}/{fileName} {
       allow read, delete: if request.auth != null && request.auth.uid == uid;
@@ -12,6 +23,19 @@ service firebase.storage {
         && request.resource.size <= 5 * 1024 * 1024
         && ((fileName.matches('.*\\.jpg$') && request.resource.contentType == 'image/jpeg')
           || (fileName.matches('.*\\.png$') && request.resource.contentType == 'image/png'));
+      allow update: if false;
+    }
+    // Juan Felipe Saenz: product and wishlist pictures picked from the phone.
+    // Only the owner writes or reads the object; the app saves its download
+    // URL (with its token) as imageUrl, which is what screens display.
+    match /productPhotos/{uid}/{fileName} {
+      allow read, delete: if isOwnerPicture(uid);
+      allow create: if isOwnerPicture(uid) && isPictureUpload(fileName);
+      allow update: if false;
+    }
+    match /wishlistPhotos/{uid}/{fileName} {
+      allow read, delete: if isOwnerPicture(uid);
+      allow create: if isOwnerPicture(uid) && isPictureUpload(fileName);
       allow update: if false;
     }
     match /{allPaths=**} {
