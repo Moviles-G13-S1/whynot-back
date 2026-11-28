@@ -419,6 +419,47 @@ it every event counts.
 - Events with an unknown screen or platform, or a duration outside 1–120000
   ms, are counted in `ignoredEvents` and left out.
 
+## Product completeness (Sprint 4 BQ, Type 2)
+
+Owner: Jerónimo. Metric: `product_completeness`. Question: "What percentage of
+saved products are missing an image or a product link?"
+
+Call `get_admin_analytics({metric: "product_completeness", params: {}})`.
+The existing callable requires the `admin: true` claim. The module
+`functions/analytics/product_completeness.py` reads every current `products`
+document once, projecting only `imageUrl` and `productUrl`. No writes, new
+collections, URL validation, network checks, or mobile changes are needed.
+Projection reduces transferred fields, not the number of document reads.
+
+A field is missing if absent, null, not a string, or empty after whitespace
+is stripped. Any non-empty string is present. All current products count,
+including purchased ones; deleted products do not. This is an all-time current
+snapshot, not historical state or an event count. Edits affect later queries.
+It helps identify missing product information that affects recognition and
+revisiting saved products (Type 2).
+
+Example `data` for four products (one complete, one without an image, one
+without a link, one without either):
+
+```json
+{
+  "totalProducts": 4,
+  "missingImageCount": 2,
+  "missingImagePercentage": 50.0,
+  "missingProductUrlCount": 2,
+  "missingProductUrlPercentage": 50.0,
+  "missingBothCount": 1,
+  "incompleteCount": 3,
+  "incompletePercentage": 75.0
+}
+```
+
+The headline is `incompletePercentage`: `(missingImageCount +
+missingProductUrlCount - missingBothCount) / totalProducts * 100`. Individual
+percentages use the same denominator. Products missing both count only once
+in the headline. Percentages are unrounded; with no products they are `null`
+and every count is zero. Tests: `tests/test_product_completeness.py`.
+
 ## Adding a BQ
 
 1. Create `functions/analytics/bqN_<name>.py` with
