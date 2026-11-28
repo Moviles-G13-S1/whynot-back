@@ -29,6 +29,7 @@ from . import (
     weekly_app_errors,
     errors_vs_saved_products,
     home_load_time,
+    product_completeness,
 )
 
 
@@ -68,6 +69,9 @@ METRICS = {
 
     # Sprint 4 - Miguel: Average Home load time per platform (Type 1).
     "home_load_time": home_load_time.compute_from_firestore,
+
+    # Sprint 4 - Jerónimo: Current saved products missing an image or a link.
+    "product_completeness": product_completeness.compute_from_firestore,
 }
 
 
